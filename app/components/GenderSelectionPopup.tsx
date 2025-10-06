@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 
 interface GenderSelectionPopupProps {
-  onGenderSelect: (gender: 'male' | 'female' | 'other') => void;
+  onGenderSelect: (gender: 'male' | 'female' | 'other') => Promise<boolean> | boolean;
   isVisible: boolean;
 }
 
@@ -12,12 +12,28 @@ const GenderSelectionPopup: React.FC<GenderSelectionPopupProps> = ({
   isVisible
 }) => {
   const [selectedGender, setSelectedGender] = useState<'male' | 'female' | 'other' | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isVisible) return null;
 
   const handleGenderSelect = (gender: 'male' | 'female' | 'other') => {
     setSelectedGender(gender);
-    onGenderSelect(gender);
+  };
+
+  const handleConfirm = async () => {
+    if (!selectedGender) return;
+    
+    try {
+      setIsSubmitting(true);
+      const result = await onGenderSelect(selectedGender);
+      if (result) {
+        setSelectedGender(null);
+      }
+    } catch (error) {
+      console.error('Error updating gender:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -66,9 +82,21 @@ const GenderSelectionPopup: React.FC<GenderSelectionPopupProps> = ({
             </button>
           </div>
 
-          <div className="text-sm text-gray-400">
+          <div className="text-sm text-gray-400 mb-6">
             This information helps us provide better hairstyle recommendations for you.
           </div>
+          
+          <button
+            onClick={handleConfirm}
+            disabled={!selectedGender || isSubmitting}
+            className={`w-full py-3 px-6 rounded-lg font-medium transition-all duration-200 ${
+              selectedGender 
+                ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+            } ${isSubmitting ? 'opacity-70' : ''}`}
+          >
+            {isSubmitting ? 'Saving...' : 'Confirm Selection'}
+          </button>
         </div>
       </div>
     </div>

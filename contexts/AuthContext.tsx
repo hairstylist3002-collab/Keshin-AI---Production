@@ -93,8 +93,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsAuthenticated(true);
 
         // Check if user has gender set, if not show popup
-        if (!result.data.gender && result.data.gender !== null && result.data.gender !== undefined) {
-          console.log('New user detected, showing gender popup for user:', userId);
+        const genderValue = result.data.gender;
+        const normalizedGender = typeof genderValue === 'string' ? genderValue.trim().toLowerCase() : genderValue;
+        if (genderValue === null || genderValue === undefined || normalizedGender === '' || normalizedGender === 'null') {
+          console.log('Gender not set, showing gender popup for user:', userId, 'raw value:', genderValue, 'normalized:', normalizedGender);
           setShowGenderPopup(true);
         }
       } else {
@@ -127,8 +129,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const handleGenderSelect = async (gender: 'male' | 'female' | 'other') => {
-    if (!user || !profile) return;
+  useEffect(() => {
+    if (!profile) {
+      return;
+    }
+
+    const genderValue = profile.gender;
+    const normalizedGender = typeof genderValue === 'string' ? genderValue.trim().toLowerCase() : genderValue;
+    const needsGender = genderValue === null || genderValue === undefined || normalizedGender === '' || normalizedGender === 'null';
+
+    if (needsGender) {
+      console.log('Gender check effect: prompting user for gender selection', { genderValue, normalizedGender });
+      setShowGenderPopup(true);
+    } else {
+      setShowGenderPopup(false);
+    }
+  }, [profile]);
+
+  const handleGenderSelect = async (gender: 'male' | 'female' | 'other'): Promise<boolean> => {
+    if (!user) {
+      console.warn('handleGenderSelect called without an authenticated user');
+      return false;
+    }
 
     try {
       // Update user profile with gender
@@ -140,12 +162,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) throw error;
 
       // Update local profile state
-      setProfile({ ...profile, gender });
+      setProfile((prev) => (prev ? { ...prev, gender } : prev));
       setShowGenderPopup(false);
 
       console.log('Gender updated successfully:', gender);
+      return true;
     } catch (error) {
       console.error('Error updating gender:', error);
+      return false;
     }
   };
 

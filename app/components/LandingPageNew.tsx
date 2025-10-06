@@ -1,19 +1,21 @@
 "use client";
 
+interface LandingPageProps {
+  onGetStarted: () => void;
+}
+
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { signOut } from "@/lib/supabase";
 import { handleEmailSignup, handleEmailSignin, handleGoogleSignin } from "@/lib/authHandler";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { getAuthErrorMessage, validateEmail, validatePassword, validateName } from "@/utils/auth-utils";
-
-interface LandingPageProps {
-  onGetStarted: () => void;
-}
-
+import Notification from './Notification';
 export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewUrlRef = useRef<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string>("https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?q=80&w=900&auto=format&fit=crop");
   
   // Example showcase state
@@ -27,13 +29,26 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
   // Authentication state
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSignupModal, setShowSignupModal] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [gender, setGender] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [authForm, setAuthForm] = useState({
+    email: '',
+    password: '',
+    name: '',
+    gender: '',
+    confirmPassword: ''
+  });
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [notification, setNotification] = useState<{
+    isVisible: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'warning' | 'info';
+  }>({
+    isVisible: false,
+    title: '',
+    message: '',
+    type: 'info'
+  });
   
   // Auth context
   const { user, profile, isAuthenticated } = useAuthContext();
@@ -69,40 +84,78 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
 
   // Automatic slideshow effect
   useEffect(() => {
-    const interval = setInterval(() => {
+    let fadeTimeout: ReturnType<typeof setTimeout> | undefined;
+
+    const scheduleNext = () => {
       setIsVisible(false);
-      setTimeout(() => {
+      fadeTimeout = setTimeout(() => {
         setCurrentExample((prev) => (prev + 1) % examples.length);
         setIsVisible(true);
-      }, 1000); // Wait for fade out
-    }, 4000); // Show each example for 4 seconds
+      }, 600);
+    };
 
-    return () => clearInterval(interval);
-  }, []);
+    const interval = setInterval(scheduleNext, 4000);
+    scheduleNext();
+
+    return () => {
+      clearInterval(interval);
+      if (fadeTimeout) {
+        clearTimeout(fadeTimeout);
+      }
+    };
+  }, [examples.length]);
 
   // Image fade effect for confused/confident images
   useEffect(() => {
-    const interval = setInterval(() => {
-      setImageFadeVisible(false);
-      setTimeout(() => {
-        setShowConfused(prev => !prev);
-        setImageFadeVisible(true);
-      }, 1000); // Wait for fade out
-    }, 3000); // Show each image for 3 seconds
+    let fadeTimeout: ReturnType<typeof setTimeout> | undefined;
 
-    return () => clearInterval(interval);
+    const scheduleImageSwap = () => {
+      setImageFadeVisible(false);
+      fadeTimeout = setTimeout(() => {
+        setShowConfused((prev) => !prev);
+        setImageFadeVisible(true);
+      }, 600);
+    };
+
+    const interval = setInterval(scheduleImageSwap, 3000);
+    scheduleImageSwap();
+
+    return () => {
+      clearInterval(interval);
+      if (fadeTimeout) {
+        clearTimeout(fadeTimeout);
+      }
+    };
+  }, []);
+
+  const updatePreviewImage = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      return;
+    }
+
+    const nextUrl = URL.createObjectURL(file);
+
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+    }
+
+    previewUrlRef.current = nextUrl;
+    setPreviewImage(nextUrl);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = null;
+      }
+    };
   }, []);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file && file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        if (e.target?.result) {
-          setPreviewImage(e.target.result as string);
-        }
-      };
-      reader.readAsDataURL(file);
+    if (file) {
+      updatePreviewImage(file);
     }
   };
 
@@ -110,8 +163,16 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
     setIsGenerating(true);
     setTimeout(() => {
       setIsGenerating(false);
-      onGetStarted();
+      handleNavigation();
     }, 1200);
+  };
+
+  const handleNavigation = () => {
+    if (isNavigating) {
+      return;
+    }
+    setIsNavigating(true);
+    onGetStarted();
   };
 
   const handleDropzoneClick = () => {
@@ -132,35 +193,44 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
     e.preventDefault();
     e.currentTarget.classList.remove('border-fuchsia-500/40');
     const file = e.dataTransfer.files?.[0];
-    if (file && file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setPreviewImage(event.target.result as string);
-        }
-      };
-      reader.readAsDataURL(file);
+    if (file) {
+      updatePreviewImage(file);
     }
+  };
+
+  const resetAuthForms = () => {
+    setAuthForm({
+      email: '',
+      password: '',
+      name: '',
+      gender: '',
+      confirmPassword: ''
+    });
+  };
+
+  const updateAuthForm = <K extends keyof typeof authForm>(field: K, value: (typeof authForm)[K]) => {
+    setAuthForm((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleLogin = async () => {
     setAuthError('');
     
     // Validation
-    if (!validateEmail(email)) {
+    if (!validateEmail(authForm.email)) {
       setAuthError('Please enter a valid email address');
       return;
     }
     
-    if (!validatePassword(password).isValid) {
-      setAuthError(validatePassword(password).message || 'Invalid password');
+    const passwordValidation = validatePassword(authForm.password);
+    if (!passwordValidation.isValid) {
+      setAuthError(passwordValidation.message || 'Invalid password');
       return;
     }
     
     setAuthLoading(true);
     
     try {
-      const result = await handleEmailSignin(email, password);
+      const result = await handleEmailSignin(authForm.email, authForm.password);
       
       if (!result.success) {
         const authError = getAuthErrorMessage({ message: result.error } as any);
@@ -168,8 +238,7 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
       } else {
         // Successful login - redirect to AI hairstylist
         setShowLoginModal(false);
-        setEmail('');
-        setPassword('');
+        resetAuthForms();
         
         // Call the onGetStarted function to show the AI hairstylist interface
         setTimeout(() => {
@@ -187,27 +256,29 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
     setAuthError('');
     
     // Validation
-    if (!validateName(name).isValid) {
-      setAuthError(validateName(name).message || 'Invalid name');
+    const nameValidation = validateName(authForm.name);
+    if (!nameValidation.isValid) {
+      setAuthError(nameValidation.message || 'Invalid name');
       return;
     }
     
-    if (!validateEmail(email)) {
+    if (!validateEmail(authForm.email)) {
       setAuthError('Please enter a valid email address');
       return;
     }
     
-    if (!validatePassword(password).isValid) {
-      setAuthError(validatePassword(password).message || 'Invalid password');
+    const passwordValidation = validatePassword(authForm.password);
+    if (!passwordValidation.isValid) {
+      setAuthError(passwordValidation.message || 'Invalid password');
       return;
     }
     
-    if (!gender) {
+    if (!authForm.gender) {
       setAuthError('Please select your gender');
       return;
     }
     
-    if (password !== confirmPassword) {
+    if (authForm.password !== authForm.confirmPassword) {
       setAuthError('Passwords do not match');
       return;
     }
@@ -215,24 +286,25 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
     setAuthLoading(true);
     
     try {
-      const result = await handleEmailSignup(email, password, name, gender);
+      const result = await handleEmailSignup(authForm.email, authForm.password, authForm.name, authForm.gender);
       
       if (!result.success) {
         const authError = getAuthErrorMessage({ message: result.error } as any);
         setAuthError(authError.message);
       } else {
-        // Successful signup - redirect to AI hairstylist
+        // Successful signup - show email confirmation notification
         setShowSignupModal(false);
-        setName('');
-        setEmail('');
-        setPassword('');
-        setGender('');
-        setConfirmPassword('');
-        
-        // Call the onGetStarted function to show the AI hairstylist interface
-        setTimeout(() => {
-          onGetStarted();
-        }, 500); // Small delay to ensure auth state is updated
+        resetAuthForms();
+
+        // Show email confirmation notification
+        setNotification({
+          isVisible: true,
+          title: 'Account Created Successfully!',
+          message: 'Please check your email and click the confirmation link to activate your account before signing in.',
+          type: 'success'
+        });
+
+        // Don't redirect immediately - let user see the notification first
       }
     } catch (error) {
       setAuthError('An unexpected error occurred');
@@ -274,6 +346,21 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
 
   return (
     <>
+      {isNavigating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/80 backdrop-blur-sm">
+          <div className="text-center space-y-4">
+            <div className="relative mx-auto h-16 w-16">
+              <div className="absolute inset-0 rounded-full border-4 border-neutral-700/40"></div>
+              <div className="absolute inset-0 animate-spin rounded-full border-4 border-transparent border-t-fuchsia-500 border-r-indigo-500"></div>
+              <div className="absolute inset-3 rounded-full bg-gradient-to-br from-fuchsia-500 to-indigo-600 opacity-80 blur-sm"></div>
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-lg font-semibold text-white">Preparing your studio</h3>
+              <p className="text-sm text-neutral-400">Loading personalized experience...</p>
+            </div>
+          </div>
+        </div>
+      )}
       <style jsx global>{`
         /* Custom scrollbar styling to match dark theme */
         ::-webkit-scrollbar {
@@ -903,8 +990,8 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
                 <label className="block text-sm font-medium text-neutral-300 mb-1">Email address</label>
                 <input
                   type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={authForm.email}
+                  onChange={(e) => updateAuthForm('email', e.target.value)}
                   className="w-full rounded-lg border border-white/10 bg-neutral-800 px-3 py-2 text-white placeholder-neutral-500 focus:border-fuchsia-500/30 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/20"
                   placeholder="you@example.com"
                   disabled={authLoading}
@@ -915,8 +1002,8 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
                 <label className="block text-sm font-medium text-neutral-300 mb-1">Password</label>
                 <input
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  value={authForm.password}
+                  onChange={(e) => updateAuthForm('password', e.target.value)}
                   className="w-full rounded-lg border border-white/10 bg-neutral-800 px-3 py-2 text-white placeholder-neutral-500 focus:border-fuchsia-500/30 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/20"
                   placeholder="••••••••"
                   disabled={authLoading}
@@ -1025,8 +1112,8 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
                 <label className="block text-sm font-medium text-neutral-300 mb-1">Full name</label>
                 <input
                   type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  value={authForm.name}
+                  onChange={(e) => updateAuthForm('name', e.target.value)}
                   className="w-full rounded-lg border border-white/10 bg-neutral-800 px-3 py-2 text-white placeholder-neutral-500 focus:border-fuchsia-500/30 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/20 disabled:opacity-50"
                   placeholder="John Doe"
                   disabled={authLoading}
@@ -1036,8 +1123,8 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
               <div>
                 <label className="block text-sm font-medium text-neutral-300 mb-1">Gender</label>
                 <select
-                  value={gender}
-                  onChange={(e) => setGender(e.target.value)}
+                  value={authForm.gender}
+                  onChange={(e) => updateAuthForm('gender', e.target.value)}
                   className="w-full rounded-lg border border-white/10 bg-neutral-800 px-3 py-2 text-white focus:border-fuchsia-500/30 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/20 disabled:opacity-50"
                   disabled={authLoading}
                 >
@@ -1053,8 +1140,8 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
                 <label className="block text-sm font-medium text-neutral-300 mb-1">Email address</label>
                 <input
                   type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={authForm.email}
+                  onChange={(e) => updateAuthForm('email', e.target.value)}
                   className="w-full rounded-lg border border-white/10 bg-neutral-800 px-3 py-2 text-white placeholder-neutral-500 focus:border-fuchsia-500/30 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/20 disabled:opacity-50"
                   placeholder="you@example.com"
                   disabled={authLoading}
@@ -1065,8 +1152,8 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
                 <label className="block text-sm font-medium text-neutral-300 mb-1">Password</label>
                 <input
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  value={authForm.password}
+                  onChange={(e) => updateAuthForm('password', e.target.value)}
                   className="w-full rounded-lg border border-white/10 bg-neutral-800 px-3 py-2 text-white placeholder-neutral-500 focus:border-fuchsia-500/30 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/20 disabled:opacity-50"
                   placeholder="••••••••"
                   disabled={authLoading}
@@ -1077,8 +1164,8 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
                 <label className="block text-sm font-medium text-neutral-300 mb-1">Confirm password</label>
                 <input
                   type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  value={authForm.confirmPassword}
+                  onChange={(e) => updateAuthForm('confirmPassword', e.target.value)}
                   className="w-full rounded-lg border border-white/10 bg-neutral-800 px-3 py-2 text-white placeholder-neutral-500 focus:border-fuchsia-500/30 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/20 disabled:opacity-50"
                   placeholder="••••••••"
                   disabled={authLoading}
@@ -1156,6 +1243,15 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
           </div>
         </div>
       )}
+
+      {/* Email Confirmation Notification */}
+      <Notification
+        isVisible={notification.isVisible}
+        title={notification.title}
+        message={notification.message}
+        type={notification.type}
+        onClose={() => setNotification({ ...notification, isVisible: false })}
+      />
 
     </>
   );

@@ -31,8 +31,9 @@ export const createOrUpdateUserProfile = async (userData: CreateUserData): Promi
         id: userData.id,
         name: userData.name,
         email: userData.email,
-        gender: userData.gender,
+        gender: userData.gender || null, // Ensure gender is included, default to null if not provided
         credits: userData.credits || 1, // Default to 1 credit if not specified
+        created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
       .select()

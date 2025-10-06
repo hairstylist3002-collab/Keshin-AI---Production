@@ -48,21 +48,20 @@ export default function HairstylistPage() {
 
   // Authentication context
   const { user, profile, loading, isAuthenticated, signOut } = useAuthContext();
-  const [initialLoad, setInitialLoad] = useState(true);
+  const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
 
   // Authentication guard - redirect if not authenticated or no profile
   useEffect(() => {
-    // Only run the auth check after the initial load
-    if (initialLoad) {
-      setInitialLoad(false);
+    if (loading) {
       return;
     }
 
-    // Only redirect if we're not already loading and not authenticated
-    if (!loading && !isAuthenticated) {
+    setHasCheckedAuth(true);
+
+    if (!isAuthenticated) {
       router.push('/');
     }
-  }, [isAuthenticated, loading, router, initialLoad]);
+  }, [isAuthenticated, loading, router]);
 
   useEffect(() => {
     console.log('Profile credits sync effect:', {
@@ -100,12 +99,22 @@ export default function HairstylistPage() {
   // }, [isDropdownOpen]);
 
   // Show loading while checking authentication or during initial load
-  if (loading || initialLoad) {
+  if (loading || !hasCheckedAuth) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-indigo-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-          <p className="text-white text-lg">Loading...</p>
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#05070d] px-6">
+        <div className="pointer-events-none absolute inset-0 opacity-70">
+          <div className="orb orb--teal"></div>
+          <div className="orb orb--purple"></div>
+          <div className="orb orb--blue"></div>
+        </div>
+        <div className="relative z-10 flex flex-col items-center gap-6 text-slate-100">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full border border-slate-700/60 bg-slate-900/60 p-4 shadow-lg shadow-indigo-900/40">
+            <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-slate-400 border-t-transparent"></div>
+          </div>
+          <div className="text-center">
+            <p className="text-base font-semibold tracking-wide text-slate-200">Loading your studio</p>
+            <p className="mt-1 text-sm text-slate-400">Fetching your profile and credits...</p>
+          </div>
         </div>
       </div>
     );

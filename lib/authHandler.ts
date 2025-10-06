@@ -65,17 +65,17 @@ export const handleEmailSignin = async (email: string, password: string): Promis
 
     if (data?.user) {
       // For sign in, we assume user profile already exists
-      // If it doesn't exist, the trigger should have created it
+      // Just return the user data, no need to create a new profile here
       return { 
         success: true, 
         userData: {
           id: data.user.id,
           email: data.user.email,
-          name: data.user.user_metadata?.name || 'User'
+          name: data.user.user_metadata?.name || ''
         }
       };
     }
-
+    
     return { success: false, error: 'No user data returned from authentication' };
   } catch (error) {
     console.error('Error in handleEmailSignin:', error);
