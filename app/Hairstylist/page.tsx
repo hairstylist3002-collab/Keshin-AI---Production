@@ -8,6 +8,7 @@ import { signOut } from "@/lib/supabase";
 import { supabase } from "@/lib/supabase";
 import ProfileSkeleton from "../components/ProfileSkeleton";
 import ImageSkeleton from "../components/ImageSkeleton";
+import ReferralCard from "../components/ReferralCard";
 
 // Add shimmer animation to global styles
 const shimmerAnimation = `
@@ -42,6 +43,7 @@ export default function HairstylistPage() {
   const [currentCredits, setCurrentCredits] = useState<number>(0);
   const [uploadProgress, setUploadProgress] = useState<{source: number, target: number}>({source: 0, target: 0});
   const [processingProgress, setProcessingProgress] = useState<number>(0);
+  const [showReferralModal, setShowReferralModal] = useState(false);
 
   const sourceInputRef = useRef<HTMLInputElement>(null);
   const targetInputRef = useRef<HTMLInputElement>(null);
@@ -347,6 +349,24 @@ export default function HairstylistPage() {
 
   return (
     <div className="min-h-screen">
+      {showReferralModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/90 backdrop-blur-md px-4 py-6">
+          <div className="relative w-full max-w-xl">
+            <button
+              onClick={() => setShowReferralModal(false)}
+              className="absolute -top-4 -right-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-neutral-900/90 text-neutral-300 ring-1 ring-white/10 transition hover:text-white"
+              aria-label="Close referral dialog"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+            <ReferralCard />
+          </div>
+        </div>
+      )}
+
       <div className="container mx-auto px-4 py-6 max-w-6xl sm:py-8">
         {/* Header with User Info */}
         <header className="flex items-center justify-between mb-6">
@@ -409,6 +429,15 @@ export default function HairstylistPage() {
                     </span>
                   )}
                 </div>
+                <button
+                  onClick={() => setShowReferralModal(true)}
+                  className="inline-flex items-center gap-2 rounded-md bg-gradient-to-br from-fuchsia-500 to-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-lg shadow-fuchsia-600/20 ring-1 ring-white/10 transition hover:opacity-95"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3l2.286 6.857H21l-5.357 3.929L17.929 21 12 16.929 6.071 21l1.286-7.214L2 9.857h6.714L12 3z" />
+                  </svg>
+                  Get credits
+                </button>
                 <button
                   onClick={handleSignOut}
                   className="inline-flex rounded-md px-3 py-2 text-sm font-medium text-neutral-300 hover:text-white cursor-pointer transition"

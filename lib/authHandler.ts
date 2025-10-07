@@ -11,23 +11,43 @@ export interface AuthResult {
 /**
  * Handle email/password sign up with user data storage
  */
-export const handleEmailSignup = async (email: string, password: string, name: string, gender?: string): Promise<AuthResult> => {
+export const handleEmailSignup = async (
+  email: string,
+  password: string,
+  name: string,
+  referralCode?: string
+): Promise<AuthResult> => {
   try {
     // First, perform the authentication
-    const { data, error } = await signUp(email, password, name);
+    const { data, error } = await signUp(email, password, name, referralCode);
     
     if (error) {
       return { success: false, error: error.message };
     }
 
     if (data?.user) {
+      if (referralCode) {
+        void fetch('/api/handle-referral', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            referralCode,
+            newUserId: data.user.id
+          })
+        }).catch((apiError) => {
+          console.error('Referral API call failed:', apiError);
+        });
+      }
+
       // Store user data in the database (non-blocking)
       const userResult = await handleUserAuthData(
         data.user.id,
         name,
         email,
         false, // Not Google auth
-        gender
+        undefined // gender - no longer collected
       );
 
       if (!userResult.success) {

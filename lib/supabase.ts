@@ -10,13 +10,14 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 export const supabaseService = createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey)
 
 // Auth helper functions
-export const signUp = async (email: string, password: string, name: string) => {
+export const signUp = async (email: string, password: string, name: string, referralCode?: string) => {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: {
         name,
+        referral_code: referralCode,
       }
     }
   })

@@ -6,6 +6,7 @@ export interface UserProfile {
   name: string;
   email: string;
   gender?: string;
+  referral_code: string;
   credits: number;
   created_at: string;
   updated_at: string;
@@ -17,13 +18,46 @@ export interface CreateUserData {
   email: string;
   gender?: string;
   credits?: number;
+  referral_code?: string;
 }
+
+export const generateReferralCode = (): string => {
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const length = 8;
+  let result = '';
+
+  for (let index = 0; index < length; index += 1) {
+    const randomIndex = Math.floor(Math.random() * characters.length);
+    result += characters[randomIndex];
+  }
+
+  return result;
+};
 
 /**
  * Create or update user profile in the database
  */
 export const createOrUpdateUserProfile = async (userData: CreateUserData): Promise<{ success: boolean; error?: string; data?: UserProfile }> => {
   try {
+    // Check if the profile already exists to determine referral code assignment
+    const { data: existingProfile, error: existingProfileError } = await supabase
+      .from('user_profiles')
+      .select('id, referral_code')
+      .eq('id', userData.id)
+      .maybeSingle();
+
+    if (existingProfileError) {
+      if (existingProfileError.code !== 'PGRST116') {
+        console.error('Error checking existing user profile:', existingProfileError);
+        return { success: false, error: existingProfileError.message };
+      }
+    }
+
+    const isNewProfile = !existingProfile;
+    const referralCode = isNewProfile
+      ? generateReferralCode()
+      : existingProfile?.referral_code || userData.referral_code || generateReferralCode();
+
     // First try to create/update using upsert
     const { data, error } = await supabase
       .from('user_profiles')
@@ -32,6 +66,7 @@ export const createOrUpdateUserProfile = async (userData: CreateUserData): Promi
         name: userData.name,
         email: userData.email,
         gender: userData.gender || null, // Ensure gender is included, default to null if not provided
+        referral_code: referralCode,
         credits: userData.credits || 1, // Default to 1 credit if not specified
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -50,7 +85,8 @@ export const createOrUpdateUserProfile = async (userData: CreateUserData): Promi
             user_name: userData.name,
             user_email: userData.email,
             user_gender: userData.gender,
-            user_credits: userData.credits || 1
+            user_credits: userData.credits || 1,
+            user_referral_code: referralCode
           });
 
         if (fallbackError) {
