@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { signOut } from "@/lib/supabase";
 import { useAuthContext } from "@/contexts/AuthContext";
 import Notification from './Notification';
 
@@ -53,7 +52,7 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
   } | null>(null);
 
   // Auth context
-  const { user, profile, isAuthenticated } = useAuthContext();
+  const { user, isAuthenticated } = useAuthContext();
 
   const examples = [
     {
@@ -81,6 +80,15 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
       description: "Choppy fringe with volume and movement"
     }
   ];
+
+  // New example for final CTA section
+  const finalCTAExample = {
+    id: 4,
+    before: "/examples/example-4-in-2.png",
+    after: "/examples/example-4-out-2.png",
+    title: "Complete Transformation",
+    description: "See how our AI transforms any look"
+  };
 
   const currentExampleData = examples[currentExample];
 
@@ -118,20 +126,20 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
     }
   }, [notification]);
 
-  const updatePreviewImage = (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      return;
-    }
+  // const updatePreviewImage = (file: File) => {
+  //   if (!file.type.startsWith('image/')) {
+  //     return;
+  //   }
 
-    const nextUrl = URL.createObjectURL(file);
+  //   const nextUrl = URL.createObjectURL(file);
 
-    if (previewUrlRef.current) {
-      URL.revokeObjectURL(previewUrlRef.current);
-    }
+  //   if (previewUrlRef.current) {
+  //     URL.revokeObjectURL(previewUrlRef.current);
+  //   }
 
-    previewUrlRef.current = nextUrl;
-    setPreviewImage(nextUrl);
-  };
+  //   previewUrlRef.current = nextUrl;
+  //   setPreviewImage(nextUrl);
+  // };
 
   useEffect(() => {
     return () => {
@@ -142,20 +150,20 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
     };
   }, []);
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      updatePreviewImage(file);
-    }
-  };
+  // const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  //   const file = event.target.files?.[0];
+  //   if (file) {
+  //     updatePreviewImage(file);
+  //   }
+  // };
 
-  const handleGenerateClick = () => {
-    setIsGenerating(true);
-    setTimeout(() => {
-      setIsGenerating(false);
-      handleNavigation();
-    }, 1200);
-  };
+  // const handleGenerateClick = () => {
+  //   setIsGenerating(true);
+  //   setTimeout(() => {
+  //     setIsGenerating(false);
+  //     handleNavigation();
+  //   }, 1200);
+  // };
 
   const handleNavigation = () => {
     if (isNavigating) {
@@ -165,28 +173,28 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
     onGetStarted();
   };
 
-  const handleDropzoneClick = () => {
-    fileInputRef.current?.click();
-  };
+  // const handleDropzoneClick = () => {
+  //   fileInputRef.current?.click();
+  // };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.currentTarget.classList.add('border-fuchsia-500/40');
-  };
+  // const handleDragOver = (e: React.DragEvent) => {
+  //   e.preventDefault();
+  //   e.currentTarget.classList.add('border-fuchsia-500/40');
+  // };
 
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.currentTarget.classList.remove('border-fuchsia-500/40');
-  };
+  // const handleDragLeave = (e: React.DragEvent) => {
+  //   e.preventDefault();
+  //   e.currentTarget.classList.remove('border-fuchsia-500/40');
+  // };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.currentTarget.classList.remove('border-fuchsia-500/40');
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      updatePreviewImage(file);
-    }
-  };
+  // const handleDrop = (e: React.DragEvent) => {
+  //   e.preventDefault();
+  //   e.currentTarget.classList.remove('border-fuchsia-500/40');
+  //   const file = e.dataTransfer.files?.[0];
+  //   if (file) {
+  //     updatePreviewImage(file);
+  //   }
+  // };
 
   return (
     <>
@@ -358,7 +366,7 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
                 </button>
               </div>
 
-              <div className="mt-8 flex items-center gap-6">
+              {/* <div className="mt-8 flex items-center gap-6">
                 <div className="flex -space-x-3">
                   <Image className="h-8 w-8 rounded-full object-cover ring-2 ring-neutral-900" src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=128&auto=format&fit=crop" alt="User 1" width={32} height={32} />
                   <Image className="h-8 w-8 rounded-full object-cover ring-2 ring-neutral-900" src="https://images.unsplash.com/photo-1544006659-f0b21884ce1d?q=80&w=128&auto=format&fit=crop" alt="User 2" width={32} height={32} />
@@ -366,7 +374,7 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-xs text-neutral-300 ring-2 ring-neutral-900">+9k</div>
                 </div>
                 <p className="text-sm text-neutral-400">Realistic previews loved by thousands</p>
-              </div>
+              </div> */}
             </div>
 
             {/* Interactive Example Showcase */}
@@ -707,7 +715,7 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
       </section>
 
       {/* Social proof */}
-      <section className="relative">
+      {/* <section className="relative">
         <div className="mx-auto max-w-6xl px-6 py-16">
           <h3 className="text-2xl font-semibold tracking-tight text-white">Loved for realism and confidence</h3>
           <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -743,7 +751,7 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
             </div>
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* FAQ */}
       <section id="faq" className="relative border-t border-white/10">
@@ -800,7 +808,7 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
                 <p className="mt-2 text-neutral-200">End the guesswork, protect your money, and walk in with confidence.</p>
                 <div className="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                   <button 
-                    onClick={onGetStarted}
+                    onClick={() => router.push('/signup')}
                     className="inline-flex items-center justify-center gap-2 rounded-md bg-white text-neutral-900 px-5 py-3 text-sm font-medium hover:opacity-95" suppressHydrationWarning
                   >
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -810,14 +818,57 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
                   </button>
                   <a href="#pricing" className="inline-flex items-center justify-center gap-2 rounded-md bg-white/10 px-5 py-3 text-sm font-medium text-white ring-1 ring-white/10 hover:bg-white/15">
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                     </svg>
                     See pricing
                   </a>
                 </div>
               </div>
               <div className="relative">
-                <Image className="h-64 w-full rounded-xl object-cover ring-1 ring-white/10" src="https://images.unsplash.com/photo-1621619856624-42fd193a0661?w=1080&q=80" alt="Confident person with great haircut" width={500} height={256} />
+                {/* Example transformation showcase */}
+                <div className="rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur">
+                  <div className="text-center mb-4">
+                    <h4 className="text-lg font-semibold text-white mb-1">{finalCTAExample.title}</h4>
+                    <p className="text-sm text-neutral-400">{finalCTAExample.description}</p>
+                  </div>
+
+                  <div className="flex items-center justify-center gap-4 md:gap-6">
+                    {/* Before Image */}
+                    <div className="flex flex-col items-center flex-shrink-0">
+                      <div className="aspect-[3/4] w-20 md:w-24 overflow-hidden rounded-lg ring-1 ring-white/10 relative mb-2">
+                        <Image
+                          src={finalCTAExample.before}
+                          alt="Before transformation"
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                      <span className="text-xs font-medium text-amber-300 bg-amber-500/20 px-2 py-1 rounded-full whitespace-nowrap">
+                        Before
+                      </span>
+                    </div>
+
+                    {/* Arrow */}
+                    <div className="text-xl md:text-2xl text-neutral-400 animate-pulse flex-shrink-0">
+                      →
+                    </div>
+
+                    {/* After Image */}
+                    <div className="flex flex-col items-center flex-shrink-0">
+                      <div className="aspect-[3/4] w-20 md:w-24 overflow-hidden rounded-lg ring-1 ring-white/10 relative mb-2">
+                        <Image
+                          src={finalCTAExample.after}
+                          alt="After transformation"
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                      <span className="text-xs font-medium text-emerald-300 bg-emerald-500/20 px-2 py-1 rounded-full whitespace-nowrap">
+                        After
+                      </span>
+                    </div>
+                  </div>
+                </div>
                 <div className="absolute -bottom-4 left-6 rounded-md bg-neutral-900/80 px-3 py-2 text-xs text-neutral-200 ring-1 ring-white/10 backdrop-blur">
                   <span className="inline-flex items-center gap-1 text-emerald-300">
                     <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
