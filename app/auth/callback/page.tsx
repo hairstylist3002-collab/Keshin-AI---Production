@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { handleOAuthCallback } from "@/lib/authHandler";
 
@@ -9,6 +9,7 @@ export default function AuthCallback() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     const handleAuthCallback = async () => {
@@ -22,6 +23,28 @@ export default function AuthCallback() {
           // The user can still use the app even if profile creation failed
         }
 
+        // Check for referral code in URL and process it
+        const referralCode = searchParams.get('ref');
+        if (referralCode && result.userData?.id) {
+          try {
+            await fetch('/api/handle-referral', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                referralCode,
+                newUserId: result.userData.id
+              })
+            });
+            console.log('Referral processed for Google user');
+            // Clean up the referral code from localStorage after processing
+            localStorage.removeItem('referralCode');
+          } catch (referralError) {
+            console.error('Failed to process referral for Google user:', referralError);
+          }
+        }
+
         // Redirect to home page - the main page will handle the authenticated state
         router.push("/");
 
@@ -33,7 +56,7 @@ export default function AuthCallback() {
     };
 
     handleAuthCallback();
-  }, [router]);
+  }, [router, searchParams]);
 
   if (loading) {
     return (

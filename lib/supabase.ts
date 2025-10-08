@@ -50,13 +50,16 @@ export const onAuthStateChange = (callback: (event: string, session: any) => voi
 
 // Google OAuth authentication
 export const signInWithGoogle = async () => {
+  // Get referral code from localStorage if exists
+  const referralCode = localStorage.getItem('referralCode');
+
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${window.location.origin}/auth/callback`
+      redirectTo: `${window.location.origin}/auth/callback${referralCode ? `?ref=${referralCode}` : ''}`
     }
   })
-  
+
   return { data, error }
 }
 

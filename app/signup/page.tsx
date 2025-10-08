@@ -140,6 +140,7 @@ export default function SignupPage() {
       } else {
         // Successful signup - show email confirmation notification
         resetAuthForms();
+        localStorage.removeItem('referralCode');
 
         // Show email confirmation notification
         setNotification({
