@@ -27,6 +27,31 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
   const [showConfused, setShowConfused] = useState(true);
   const [imageFadeVisible, setImageFadeVisible] = useState(true);
 
+  // Add alternating image effect
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Start fade out (1 second transition)
+      setImageFadeVisible(false);
+
+      // After fade out completes, switch image and fade in
+      setTimeout(() => {
+        setShowConfused(prev => !prev);
+        setImageFadeVisible(true);
+      }, 1000); // Match the CSS transition duration
+    }, 4000); // Total cycle time: 1s fade out + 1s fade in + 2s pause
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Notification state
+  const [notification, setNotification] = useState<{
+    isVisible: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'warning' | 'info';
+    duration?: number;
+  } | null>(null);
+
   // Auth context
   const { user, profile, isAuthenticated } = useAuthContext();
 
@@ -82,28 +107,16 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
     };
   }, [examples.length]);
 
-  // Image fade effect for confused/confident images
+  // Notification auto-dismiss effect
   useEffect(() => {
-    let fadeTimeout: ReturnType<typeof setTimeout> | undefined;
+    if (notification?.isVisible && notification?.duration) {
+      const timer = setTimeout(() => {
+        setNotification(null);
+      }, notification.duration);
 
-    const scheduleImageSwap = () => {
-      setImageFadeVisible(false);
-      fadeTimeout = setTimeout(() => {
-        setShowConfused((prev) => !prev);
-        setImageFadeVisible(true);
-      }, 600);
-    };
-
-    const interval = setInterval(scheduleImageSwap, 3000);
-    scheduleImageSwap();
-
-    return () => {
-      clearInterval(interval);
-      if (fadeTimeout) {
-        clearTimeout(fadeTimeout);
-      }
-    };
-  }, []);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
 
   const updatePreviewImage = (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -177,6 +190,17 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
 
   return (
     <>
+      {/* Notification */}
+      {notification?.isVisible && (
+        <Notification
+          isVisible={notification.isVisible}
+          title={notification.title}
+          message={notification.message}
+          type={notification.type}
+          onClose={() => setNotification(null)}
+        />
+      )}
+
       {isNavigating && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/80 backdrop-blur-sm">
           <div className="text-center space-y-4">
@@ -233,7 +257,7 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z" />
                 </svg>
               </div>
-              <span className="text-lg font-medium tracking-tight">AI Hairstylist</span>
+              <span className="text-lg font-medium tracking-tight">Keshin Shop</span>
             </div>
             <nav className="hidden md:flex items-center gap-8 text-sm text-neutral-300">
               <a href="#how" className="hover:text-white transition">How it works</a>
@@ -257,14 +281,46 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
                 <>
                   <div
                     onClick={() => router.push('/signup')}
-                    className="hidden sm:inline-flex rounded-md px-3 py-2 text-sm font-medium text-neutral-300 hover:text-white cursor-pointer transition"
+                    className="inline-flex rounded-md px-3 py-2 text-sm font-medium text-neutral-300 hover:text-white cursor-pointer transition"
                   >
                     Sign in
                   </div>
                   <button
-                    onClick={onGetStarted}
-                    className="inline-flex items-center gap-2 rounded-md bg-white/10 px-4 py-2 text-sm font-medium text-white shadow-sm ring-1 ring-white/15 hover:bg-white/15"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      // Show notification
+                      setNotification({
+                        isVisible: true,
+                        type: 'error',
+                        title: 'Sign in required',
+                        message: 'Please sign in first to get started with Keshin Shop.',
+                        duration: 4000
+                      });
+                    }}
+                    disabled={!isAuthenticated}
+                    className={`inline-flex items-center gap-2 rounded-md bg-white/10 px-4 py-2 text-sm font-medium text-white shadow-sm ring-1 ring-white/15 transition-all duration-200 ${
+                      !isAuthenticated
+                        ? 'opacity-50 cursor-not-allowed hover:bg-white/10'
+                        : 'hover:bg-white/15'
+                    }`}
                     suppressHydrationWarning
+                    onMouseEnter={(e) => {
+                      if (!isAuthenticated) {
+                        // Show tooltip
+                        const tooltip = document.createElement('div');
+                        tooltip.className = 'absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 bg-gray-900 text-white text-xs rounded-md shadow-lg z-50 whitespace-nowrap';
+                        tooltip.textContent = 'Sign in first';
+                        e.currentTarget.style.position = 'relative';
+                        e.currentTarget.appendChild(tooltip);
+
+                        // Remove tooltip after 2 seconds
+                        setTimeout(() => {
+                          if (tooltip.parentNode) {
+                            tooltip.parentNode.removeChild(tooltip);
+                          }
+                        }, 2000);
+                      }
+                    }}
                   >
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
@@ -284,14 +340,14 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
           <div className="grid grid-cols-1 items-center gap-10 md:grid-cols-2">
             <div>
               <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight text-white">
-                Stop Guessing. Start Knowing. Your Perfect Haircut Awaits.
+                Welcome to Virtual Barber Shop. Find out which hairstyle suits you before getting a real haircut
               </h1>
               <p className="mt-5 text-base sm:text-lg text-neutral-300">
-                A great haircut is an investment in yourself. This is your insurance. See your perfect look with your own hair color and texture before you ever sit in the salon chair.
+                One smart decision here saves you from months of regretting a bad haircut. Invest a little to protect a lot, and ensure the style you pay for is the style you truly want.
               </p>
               <div className="mt-7 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                <button 
-                  onClick={onGetStarted}
+                <button
+                  onClick={() => router.push('/signup')}
                   className="inline-flex items-center justify-center gap-2 rounded-md bg-gradient-to-br from-fuchsia-500 to-indigo-600 px-5 py-3 text-sm font-medium text-white shadow-lg shadow-fuchsia-600/20 ring-1 ring-white/10 hover:opacity-95"
                   suppressHydrationWarning
                 >
@@ -300,13 +356,6 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
                   </svg>
                   Find My Perfect Hairstyle Now
                 </button>
-                <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" className="inline-flex items-center justify-center gap-2 rounded-md bg-white/5 px-5 py-3 text-sm font-medium text-white ring-1 ring-white/10 hover:bg-white/10">
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Watch demo
-                </a>
               </div>
 
               <div className="mt-8 flex items-center gap-6">
@@ -590,56 +639,68 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
                 </li>
               </ul>
             </div>
-            <div className="rounded-xl border border-white/10 bg-white/5 p-6">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="rounded-lg border border-white/10 bg-neutral-900/40 p-5">
-                  <h4 className="text-lg font-medium tracking-tight text-white">Single Preview</h4>
-                  <p className="mt-1 text-sm text-neutral-400">Perfect for a one-time decision.</p>
-                  <p className="mt-4 text-3xl font-semibold tracking-tight">$9</p>
-                  <button className="mt-4 inline-flex w-full items-center justify-center rounded-md bg-white/10 px-4 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:bg-white/15" suppressHydrationWarning>Choose</button>
-                  <ul className="mt-4 space-y-2 text-sm text-neutral-400">
-                    <li className="flex items-center gap-2">
-                      <svg className="h-4 w-4 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg> 1 style preview
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <svg className="h-4 w-4 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg> Salon-ready share link
-                    </li>
-                  </ul>
+            <div className="rounded-xl border border-fuchsia-500/30 bg-gradient-to-br from-fuchsia-600/10 via-indigo-600/10 to-transparent p-6">
+              <div className="mx-auto max-w-2xl text-center">
+                <h3 className="text-2xl font-semibold tracking-tight text-white">Try Any Hairstyle Virtually</h3>
+                <div className="mt-4 flex items-baseline justify-center gap-2">
+                  <span className="text-4xl font-bold tracking-tight text-white">₹39</span>
+                  <span className="text-base text-neutral-300">per credit</span>
                 </div>
-                <div className="relative rounded-lg border border-fuchsia-400/30 bg-gradient-to-br from-fuchsia-500/10 to-indigo-600/10 p-5 ring-1 ring-inset ring-fuchsia-500/20">
-                  <div className="absolute -top-3 right-3 rounded-full bg-fuchsia-500/20 px-2 py-1 text-[10px] font-medium text-fuchsia-200 ring-1 ring-fuchsia-400/30">Most popular</div>
-                  <h4 className="text-lg font-medium tracking-tight text-white">Unlimited Month</h4>
-                  <p className="mt-1 text-sm text-neutral-300">Experiment freely. Find "the one."</p>
-                  <p className="mt-4 text-3xl font-semibold tracking-tight">$19</p>
-                  <button className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-gradient-to-br from-fuchsia-500 to-indigo-600 px-4 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-95" suppressHydrationWarning>
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                    </svg> Choose
-                  </button>
-                  <ul className="mt-4 space-y-2 text-sm text-neutral-300">
-                    <li className="flex items-center gap-2">
-                      <svg className="h-4 w-4 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg> Unlimited previews
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <svg className="h-4 w-4 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg> Priority rendering
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <svg className="h-4 w-4 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg> Save & compare looks
-                    </li>
-                  </ul>
+                <p className="mt-2 text-sm text-neutral-300">One credit generates a brand new virtual hairstyle</p>
+
+                <div className="mt-8 grid gap-3 text-left">
+                  <div className="flex items-start gap-2 rounded-lg border border-white/10 bg-white/5 p-3">
+                    <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500/10 ring-1 ring-emerald-500/20">
+                      <svg className="h-3 w-3 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-white">Eliminate the Gamble</h4>
+                      <p className="mt-0.5 text-xs text-neutral-300">A real haircut is permanent. A virtual preview is your smart, risk-free test before the real thing.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2 rounded-lg border border-white/10 bg-white/5 p-3">
+                    <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500/10 ring-1 ring-emerald-500/20">
+                      <svg className="h-3 w-3 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-white">Stop Wasting Money</h4>
+                      <p className="mt-0.5 text-xs text-neutral-300">₹39 is a fraction of a real haircut's cost. Don't pay full price for something you might regret.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2 rounded-lg border border-white/10 bg-white/5 p-3">
+                    <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500/10 ring-1 ring-emerald-500/20">
+                      <svg className="h-3 w-3 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-white">Discover Your Best Look</h4>
+                      <p className="mt-0.5 text-xs text-neutral-300">Try styles you'd never dare in real life. Find your signature look before committing to the chair.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2 rounded-lg border border-white/10 bg-white/5 p-3">
+                    <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500/10 ring-1 ring-emerald-500/20">
+                      <svg className="h-3 w-3 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-white">Control Your Style</h4>
+                      <p className="mt-0.5 text-xs text-neutral-300">Walk into your appointment with a clear vision. Show your stylist exactly what you want—no miscommunication.</p>
+                    </div>
+                  </div>
                 </div>
+
+                <p className="mt-6 text-xs font-medium text-fuchsia-200">Don't leave your confidence to chance. Invest in certainty.</p>
+                <p className="mt-1 text-xs text-neutral-400">Top-ups available anytime • 2 free credits on signup</p>
               </div>
-              <p className="mt-3 text-center text-xs text-neutral-400">Cancel anytime. 7-day satisfaction promise.</p>
             </div>
           </div>
         </div>
@@ -745,7 +806,7 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
                     </svg>
-                    Try AI Hairstylist now
+                    Try Keshin Shop now
                   </button>
                   <a href="#pricing" className="inline-flex items-center justify-center gap-2 rounded-md bg-white/10 px-5 py-3 text-sm font-medium text-white ring-1 ring-white/10 hover:bg-white/15">
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -780,9 +841,9 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z" />
                 </svg>
               </div>
-              <span className="text-sm font-medium tracking-tight">AI Hairstylist</span>
+              <span className="text-sm font-medium tracking-tight">Keshin Shop</span>
             </div>
-            <p className="text-xs text-neutral-500">© {new Date().getFullYear()} AI Hairstylist. All rights reserved.</p>
+            <p className="text-xs text-neutral-500">© {new Date().getFullYear()} Keshin Shop. All rights reserved.</p>
           </div>
         </div>
       </footer>

@@ -186,7 +186,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   return NextResponse.json({
-    message: 'AI Hair Stylist Processing API',
+    message: 'Keshin Shop Processing API',
     endpoints: {
       'POST /api/process': 'Process hair style transformation'
     },

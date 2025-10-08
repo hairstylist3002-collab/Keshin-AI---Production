@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     const { error: updateError } = await supabaseAdmin
       .from("user_profiles")
       .update({
-        credits: (referrerProfile.credits || 0) + 3,
+        credits: (referrerProfile.credits || 0) + 1,
         updated_at: new Date().toISOString()
       })
       .eq("id", referrerProfile.id)

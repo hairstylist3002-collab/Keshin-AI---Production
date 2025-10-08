@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { handleEmailSignup, handleEmailSignin, handleGoogleSignin } from "@/lib/authHandler";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { getAuthErrorMessage, validateEmail, validatePassword, validateName } from "@/utils/auth-utils";
+import { getAuthErrorMessage, validateEmail, validatePassword, validateName, categorizeError, AppError } from "@/utils/auth-utils";
+import ErrorDisplay from "../components/ErrorDisplay";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -19,7 +20,7 @@ export default function SignupPage() {
     confirmPassword: ''
   });
   const [authLoading, setAuthLoading] = useState(false);
-  const [authError, setAuthError] = useState('');
+  const [authError, setAuthError] = useState<AppError | null>(null);
   const [notification, setNotification] = useState<{
     isVisible: boolean;
     title: string;
@@ -62,17 +63,33 @@ export default function SignupPage() {
   };
 
   const handleLogin = async () => {
-    setAuthError('');
+    setAuthError(null);
 
     // Validation
     if (!validateEmail(authForm.email)) {
-      setAuthError('Please enter a valid email address');
+      setAuthError({
+        category: 'VALIDATION',
+        message: 'Invalid email format',
+        userMessage: 'Please enter a valid email address',
+        code: 'INVALID_EMAIL',
+        type: 'error',
+        severity: 'low',
+        recoverable: true
+      });
       return;
     }
 
     const passwordValidation = validatePassword(authForm.password);
     if (!passwordValidation.isValid) {
-      setAuthError(passwordValidation.message || 'Invalid password');
+      setAuthError({
+        category: 'VALIDATION',
+        message: passwordValidation.message || 'Invalid password',
+        userMessage: passwordValidation.message || 'Invalid password',
+        code: 'INVALID_PASSWORD',
+        type: 'error',
+        severity: 'low',
+        recoverable: true
+      });
       return;
     }
 
@@ -82,42 +99,75 @@ export default function SignupPage() {
       const result = await handleEmailSignin(authForm.email, authForm.password);
 
       if (!result.success) {
-        const authError = getAuthErrorMessage({ message: result.error } as any);
-        setAuthError(authError.message);
+        const categorizedError = categorizeError({ message: result.error });
+        setAuthError(categorizedError);
       } else {
         // Successful login - redirect to AI hairstylist
         router.push('/Hairstylist');
       }
     } catch (error) {
-      setAuthError('An unexpected error occurred');
+      const categorizedError = categorizeError(error);
+      setAuthError(categorizedError);
     } finally {
       setAuthLoading(false);
     }
   };
 
   const handleSignup = async () => {
-    setAuthError('');
+    setAuthError(null);
 
     // Validation
     const nameValidation = validateName(authForm.name);
     if (!nameValidation.isValid) {
-      setAuthError(nameValidation.message || 'Invalid name');
+      setAuthError({
+        category: 'VALIDATION',
+        message: nameValidation.message || 'Invalid name',
+        userMessage: nameValidation.message || 'Invalid name',
+        code: 'INVALID_NAME',
+        type: 'error',
+        severity: 'low',
+        recoverable: true
+      });
       return;
     }
 
     if (!validateEmail(authForm.email)) {
-      setAuthError('Please enter a valid email address');
+      setAuthError({
+        category: 'VALIDATION',
+        message: 'Invalid email format',
+        userMessage: 'Please enter a valid email address',
+        code: 'INVALID_EMAIL',
+        type: 'error',
+        severity: 'low',
+        recoverable: true
+      });
       return;
     }
 
     const passwordValidation = validatePassword(authForm.password);
     if (!passwordValidation.isValid) {
-      setAuthError(passwordValidation.message || 'Invalid password');
+      setAuthError({
+        category: 'VALIDATION',
+        message: passwordValidation.message || 'Invalid password',
+        userMessage: passwordValidation.message || 'Invalid password',
+        code: 'INVALID_PASSWORD',
+        type: 'error',
+        severity: 'low',
+        recoverable: true
+      });
       return;
     }
 
     if (authForm.password !== authForm.confirmPassword) {
-      setAuthError('Passwords do not match');
+      setAuthError({
+        category: 'VALIDATION',
+        message: 'Passwords do not match',
+        userMessage: 'Passwords do not match',
+        code: 'PASSWORD_MISMATCH',
+        type: 'error',
+        severity: 'low',
+        recoverable: true
+      });
       return;
     }
 
@@ -135,8 +185,8 @@ export default function SignupPage() {
       );
 
       if (!result.success) {
-        const authError = getAuthErrorMessage({ message: result.error } as any);
-        setAuthError(authError.message);
+        const categorizedError = categorizeError({ message: result.error });
+        setAuthError(categorizedError);
       } else {
         // Successful signup - show email confirmation notification
         resetAuthForms();
@@ -153,25 +203,27 @@ export default function SignupPage() {
         // Don't redirect immediately - let user see the notification first
       }
     } catch (error) {
-      setAuthError('An unexpected error occurred');
+      const categorizedError = categorizeError(error);
+      setAuthError(categorizedError);
     } finally {
       setAuthLoading(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
-    setAuthError('');
+    setAuthError(null);
     setAuthLoading(true);
 
     try {
       const result = await handleGoogleSignin();
       if (!result.success) {
-        const authError = getAuthErrorMessage({ message: result.error } as any);
-        setAuthError(authError.message);
+        const categorizedError = categorizeError({ message: result.error });
+        setAuthError(categorizedError);
       }
       // Note: OAuth redirect will happen automatically, no need to close modal
     } catch (error) {
-      setAuthError('An unexpected error occurred with Google sign-in');
+      const categorizedError = categorizeError(error);
+      setAuthError(categorizedError);
     } finally {
       setAuthLoading(false);
     }
@@ -255,9 +307,11 @@ export default function SignupPage() {
 
             {/* Error Display */}
             {authError && (
-              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-                <p className="text-sm text-red-400">{authError}</p>
-              </div>
+              <ErrorDisplay
+                error={authError}
+                onRetry={authError.retryable ? () => setAuthError(null) : undefined}
+                onDismiss={() => setAuthError(null)}
+              />
             )}
 
             <form className="space-y-4">

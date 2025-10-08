@@ -9,6 +9,8 @@ import { supabase } from "@/lib/supabase";
 import ProfileSkeleton from "../components/ProfileSkeleton";
 import ImageSkeleton from "../components/ImageSkeleton";
 import ReferralCard from "../components/ReferralCard";
+import ErrorDisplay from "../components/ErrorDisplay";
+import { categorizeError, AppError } from "@/utils/auth-utils";
 
 // Add shimmer animation to global styles
 const shimmerAnimation = `
@@ -38,7 +40,7 @@ export default function HairstylistPage() {
   const [targetPreview, setTargetPreview] = useState<string | null>(null);
   const [resultImage, setResultImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AppError | null>(null);
   const [userSubMessage, setUserSubMessage] = useState<string | null>(null);
   const [currentCredits, setCurrentCredits] = useState<number>(0);
   const [uploadProgress, setUploadProgress] = useState<{source: number, target: number}>({source: 0, target: 0});
@@ -73,18 +75,28 @@ export default function HairstylistPage() {
     });
 
     if (profile?.credits !== undefined) {
-      console.log(`Syncing credits: ${currentCredits} -> ${profile.credits}`);
-      setCurrentCredits(profile.credits);
-    } else if (profile && profile.credits === undefined) {
+      if (profile.credits !== currentCredits) {
+        console.log(`Syncing credits: ${currentCredits} -> ${profile.credits}`);
+        setCurrentCredits(profile.credits);
+      }
+      return;
+    }
+
+    if (profile && profile.credits === undefined) {
       // User has a profile but no credits field - set default
-      console.log('Profile exists but no credits field, setting default to 1');
-      setCurrentCredits(1);
-    } else if (!profile) {
+      if (currentCredits !== 1) {
+        console.log('Profile exists but no credits field, setting default to 1');
+        setCurrentCredits(1);
+      }
+      return;
+    }
+
+    if (!profile && currentCredits !== 0) {
       // No profile exists - user might need to be created
       console.log('No profile found for user');
       setCurrentCredits(0);
     }
-  }, [profile?.credits, profile, currentCredits]);
+  }, [profile, profile?.credits, currentCredits]);
 
   // Close dropdown when clicking outside
   // useEffect(() => {
@@ -145,12 +157,28 @@ export default function HairstylistPage() {
     if (file) {
       // Validate file type
       if (!file.type.startsWith('image/')) {
-        setError('Please upload a valid image file (JPG, PNG, WebP)');
+        setError({
+          category: 'FILE_UPLOAD',
+          message: 'Invalid file type',
+          userMessage: 'Please upload a valid image file (JPG, PNG, WebP)',
+          code: 'INVALID_FILE_TYPE',
+          type: 'error',
+          severity: 'medium',
+          recoverable: true
+        });
         return;
       }
       // Validate file size (max 10MB)
       if (file.size > 10 * 1024 * 1024) {
-        setError('Image size must be less than 10MB');
+        setError({
+          category: 'FILE_UPLOAD',
+          message: 'File too large',
+          userMessage: 'Image size must be less than 10MB',
+          code: 'FILE_TOO_LARGE',
+          type: 'error',
+          severity: 'medium',
+          recoverable: true
+        });
         setUserSubMessage('Please ensure the image is less than 10MB in size.');
         return;
       }
@@ -181,7 +209,15 @@ export default function HairstylistPage() {
     });
 
     if (!sourceImage || !targetImage) {
-      setError("Please upload both images before processing");
+      setError({
+        category: 'VALIDATION',
+        message: 'Missing images',
+        userMessage: 'Please upload both images before processing',
+        code: 'MISSING_IMAGES',
+        type: 'error',
+        severity: 'low',
+        recoverable: true
+      });
       return;
     }
 
@@ -193,8 +229,16 @@ export default function HairstylistPage() {
     });
 
     if (currentCredits <= 0) {
-      setError("Insufficient credits. Please purchase more credits to continue.");
-      setUserSubMessage("You need at least 1 credit to generate a hairstyle.");
+      setError({
+        category: 'CREDIT',
+        message: 'Insufficient credits',
+        userMessage: 'Insufficient credits. Please purchase more credits to continue.',
+        code: 'INSUFFICIENT_CREDITS',
+        type: 'warning',
+        severity: 'medium',
+        recoverable: true
+      });
+      setUserSubMessage('You need at least 1 credit to generate a hairstyle.');
       return;
     }
 
@@ -219,7 +263,15 @@ export default function HairstylistPage() {
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session?.access_token) {
-        setError('Authentication error. Please sign in again.');
+        setError({
+          category: 'AUTHENTICATION',
+          message: 'Missing authentication token',
+          userMessage: 'Authentication error. Please sign in again.',
+          code: 'AUTH_TOKEN_MISSING',
+          type: 'error',
+          severity: 'high',
+          recoverable: true
+        });
         return;
       }
 
@@ -233,7 +285,15 @@ export default function HairstylistPage() {
         console.log('📤 Sending request with userId:', user.id);
       } else {
         console.error('❌ No user ID available');
-        setError('User authentication error. Please sign in again.');
+        setError({
+          category: 'AUTHENTICATION',
+          message: 'User authentication error',
+          userMessage: 'User authentication error. Please sign in again.',
+          code: 'USER_AUTH_ERROR',
+          type: 'error',
+          severity: 'high',
+          recoverable: true
+        });
         return;
       }
 
@@ -247,8 +307,12 @@ export default function HairstylistPage() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        setError(errorData.error || 'Failed to process images');
+        const errorData = await response.json().catch(() => ({}));
+        const categorizedError = categorizeError({
+          message: errorData.error || `HTTP ${response.status}`,
+          status: response.status
+        });
+        setError(categorizedError);
         if (errorData.userSubMessage) {
           setUserSubMessage(errorData.userSubMessage);
         }
@@ -286,7 +350,8 @@ export default function HairstylistPage() {
       }
 
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to process images. Please try again.');
+      const categorizedError = categorizeError(err);
+      setError(categorizedError);
       console.error('Processing error:', err);
     } finally {
       setIsProcessing(false);
@@ -452,7 +517,7 @@ export default function HairstylistPage() {
         {/* Header */}
         <header className="text-center mb-8 sm:mb-12">
           <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold text-white mb-3 sm:mb-4 drop-shadow-[0_4px_16px_rgba(0,0,0,0.45)]">
-            AI Hair Stylist
+            Keshin Shop
           </h1>
           <p className="text-base sm:text-lg md:text-xl text-gray-300 max-w-xl sm:max-w-2xl mx-auto px-2">
             One smart decision here saves you from months of regretting a bad haircut. Invest a little to protect a lot, and ensure the style you pay for is the style you truly want
@@ -477,17 +542,11 @@ export default function HairstylistPage() {
 
         {/* Error Display */}
         {error && (
-          <div className="mb-8 p-4 bg-red-900/20 backdrop-blur-md border border-red-500/30 rounded-lg">
-            <div className="flex items-center gap-2 text-red-300">
-              <span className="text-xl">⚠️</span>
-              <span className="font-medium">{error}</span>
-            </div>
-            {userSubMessage && (
-              <div className="mt-2 text-sm text-gray-400 pl-8">
-                {userSubMessage}
-              </div>
-            )}
-          </div>
+          <ErrorDisplay
+            error={error}
+            onRetry={error.retryable ? () => setError(null) : undefined}
+            onDismiss={() => setError(null)}
+          />
         )}
 
         {/* Main Content */}
@@ -715,7 +774,7 @@ export default function HairstylistPage() {
 
         {/* Footer */}
         <footer className="text-center text-gray-400">
-          <p>© 2024 AI Hair Stylist. Transform your look with confidence.</p>
+          <p>© 2024 Keshin Shop. Transform your look with confidence.</p>
         </footer>
       </div>
     </div>

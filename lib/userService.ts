@@ -67,7 +67,7 @@ export const createOrUpdateUserProfile = async (userData: CreateUserData): Promi
         email: userData.email,
         gender: userData.gender || null, // Ensure gender is included, default to null if not provided
         referral_code: referralCode,
-        credits: userData.credits || 1, // Default to 1 credit if not specified
+        credits: userData.credits || 2, // Default to 2 credits for new users
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
@@ -85,7 +85,7 @@ export const createOrUpdateUserProfile = async (userData: CreateUserData): Promi
             user_name: userData.name,
             user_email: userData.email,
             user_gender: userData.gender,
-            user_credits: userData.credits || 1,
+            user_credits: userData.credits || 2,
             user_referral_code: referralCode
           });
 
@@ -219,7 +219,7 @@ export const extractGoogleUserData = (googleUser: any): CreateUserData => {
     name: googleUser.user_metadata?.full_name || googleUser.user_metadata?.name || 'Google User',
     email: googleUser.email || googleUser.user_metadata?.email,
     gender: undefined, // Google doesn't provide gender, will need to be set separately
-    credits: 1
+    credits: 2
   };
 };
 
@@ -249,7 +249,7 @@ export const handleUserAuthData = async (userId: string, name?: string, email?: 
         name: name || user.user_metadata?.name || 'User',
         email: email || user.email || '',
         gender: gender,
-        credits: 1
+        credits: 2
       };
     }
 

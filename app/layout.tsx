@@ -14,18 +14,18 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI Hair Stylist",
-  description: "One smart decision here saves you from months of regretting a bad haircut. Invest a little to protect a lot, and ensure the style you pay for is the style you truly want",
+  title: "Keshin Shop",
+  description: "Welcome to Virtual Barber Shop. Find out which hairstyle suits you before getting a real haircut",
   openGraph: {
     type: "website",
-    siteName: "AI Hair Stylist",
-    title: "AI Hair Stylist",
-    description: "One smart decision here saves you from months of regretting a bad haircut. Invest a little to protect a lot, and ensure the style you pay for is the style you truly want",
+    siteName: "Keshin Shop",
+    title: "Keshin Shop",
+    description: "Welcome to Virtual Barber Shop. Find out which hairstyle suits you before getting a real haircut",
   },
   twitter: {
     card: "summary_large_image",
-    title: "AI Hair Stylist",
-    description: "One smart decision here saves you from months of regretting a bad haircut. Invest a little to protect a lot, and ensure the style you pay for is the style you truly want",
+    title: "Keshin Shop",
+    description: "Welcome to Virtual Barber Shop. Find out which hairstyle suits you before getting a real haircut",
   },
 };
 
