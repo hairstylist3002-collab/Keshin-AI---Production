@@ -136,11 +136,7 @@ export const getUserProfile = async (
       authMatches: authUser?.id === userId
     });
 
-    // ✅ Use service role to bypass RLS for this operation
-    // This is a temporary workaround until RLS authentication is properly fixed
-    const { supabaseService } = await import('./supabase');
-
-    const { data, error } = await supabaseService
+    const { data, error } = await client
       .from('user_profiles')
       .select('*')
       .eq('id', userId)
