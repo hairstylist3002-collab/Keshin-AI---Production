@@ -13,6 +13,7 @@ interface AuthContextType {
   loading: boolean;
   isAuthenticated: boolean;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -62,8 +63,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         try {
           if (session?.user) {
-            setUser(session.user);
-            await fetchUserProfile(session.user.id);
+            // If switching users, clear any previous profile/cache
+            setUser((prev) => {
+              if (prev && prev.id !== session.user!.id) {
+                setProfile(null);
+                setIsAuthenticated(false);
+              }
+              return session.user!;
+            });
+            // For auth state changes (like token refresh), try cache first for speed
+            const cached = loadProfileFromCache(session.user.id);
+            if (cached) {
+              setProfile(cached);
+              setIsAuthenticated(true);
+              setLoading(false);
+            } else {
+              await fetchUserProfile(session.user.id);
+            }
           } else {
             setUser(null);
             setProfile(null);
@@ -84,21 +100,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [router]);
 
-  const cacheKey = typeof window !== 'undefined' ? `keshin-profile-${user?.id ?? 'anon'}` : null;
+  const getCacheKey = (userId: string) => `keshin-profile-${userId}`;
 
-  const loadProfileFromCache = () => {
-    if (!cacheKey || typeof window === 'undefined') {
-      return null;
-    }
-
+  const loadProfileFromCache = (userId: string) => {
+    if (typeof window === 'undefined') return null;
     try {
-      const cached = sessionStorage.getItem(cacheKey);
-      if (!cached) {
-        return null;
-      }
-
+      const cached = sessionStorage.getItem(getCacheKey(userId));
+      if (!cached) return null;
       const parsed = JSON.parse(cached) as { data: UserProfile; timestamp: number };
-      // Cache is valid only for current tab session; optional staleness check could be added here.
       return parsed.data;
     } catch (err) {
       console.warn('Failed to read profile cache:', err);
@@ -106,30 +115,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const saveProfileToCache = (profileData: UserProfile) => {
-    if (!cacheKey || typeof window === 'undefined') {
-      return;
-    }
-
+  const saveProfileToCache = (userId: string, profileData: UserProfile) => {
+    if (typeof window === 'undefined') return;
     try {
-      sessionStorage.setItem(cacheKey, JSON.stringify({ data: profileData, timestamp: Date.now() }));
+      sessionStorage.setItem(getCacheKey(userId), JSON.stringify({ data: profileData, timestamp: Date.now() }));
     } catch (err) {
       console.warn('Failed to persist profile cache:', err);
     }
   };
 
-  const clearProfileCache = () => {
-    if (!cacheKey || typeof window === 'undefined') {
-      return;
-    }
-
-    sessionStorage.removeItem(cacheKey);
+  const clearProfileCache = (userId?: string) => {
+    if (typeof window === 'undefined') return;
+    try {
+      if (userId) {
+        sessionStorage.removeItem(getCacheKey(userId));
+      }
+    } catch {}
   };
 
   const fetchUserProfile = async (userId: string, { forceRefresh = false } = {}) => {
     try {
       if (!forceRefresh) {
-        const cached = loadProfileFromCache();
+        const cached = loadProfileFromCache(userId);
         if (cached) {
           setProfile(cached);
           setIsAuthenticated(true);
@@ -143,7 +150,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (result.success && result.data) {
         setProfile(result.data);
         setIsAuthenticated(true);
-        saveProfileToCache(result.data);
+        saveProfileToCache(userId, result.data);
 
         // Check if user has gender set, if not show popup
         const genderValue = result.data.gender;
@@ -164,7 +171,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.warn('User profile not found, signing out');
         setProfile(null);
         setIsAuthenticated(false);
-        clearProfileCache();
+        clearProfileCache(userId);
 
         try {
           // Sign out the user since their account was deleted
@@ -177,7 +184,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('Error fetching user profile:', error);
         setProfile(null);
         setIsAuthenticated(false);
-        clearProfileCache();
+        clearProfileCache(userId);
       }
     } finally {
       setLoading(false);
@@ -185,21 +192,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    if (!profile) {
-      return;
-    }
+    if (!profile || !isAuthenticated) return;
 
     const genderValue = profile.gender;
     const normalizedGender = typeof genderValue === 'string' ? genderValue.trim().toLowerCase() : genderValue;
     const needsGender = genderValue === null || genderValue === undefined || normalizedGender === '' || normalizedGender === 'null';
 
     if (needsGender) {
-      console.log('Gender check effect: prompting user for gender selection', { genderValue, normalizedGender });
       setShowGenderPopup(true);
     } else {
       setShowGenderPopup(false);
     }
-  }, [profile]);
+  }, [profile, isAuthenticated]);
 
   const handleGenderSelect = async (gender: 'male' | 'female' | 'other'): Promise<boolean> => {
     if (!user) {
@@ -208,23 +212,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      // Update user profile with gender
-      const { error } = await supabase
-        .from('user_profiles')
-        .update({ gender: gender })
-        .eq('id', user.id);
-
-      if (error) throw error;
-
-      // Update local profile state
-      setProfile((prev) => {
-        if (!prev) {
-          return prev;
-        }
-        const updated = { ...prev, gender };
-        saveProfileToCache(updated);
-        return updated;
+      // Call secure API to update gender with service role (bypasses RLS)
+      const res = await fetch('/api/profile/gender', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, gender })
       });
+
+      const payload = await res.json();
+      if (!res.ok || !payload?.success) {
+        throw new Error(payload?.error || 'Failed to update gender');
+      }
+
+      const serverProfile: UserProfile = payload.data;
+
+      // Update local profile state and cache from server source of truth
+      setProfile(serverProfile);
+      saveProfileToCache(user.id, serverProfile);
       setShowGenderPopup(false);
 
       console.log('Gender updated successfully:', gender);
@@ -241,10 +245,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setProfile(null);
       setIsAuthenticated(false);
-      clearProfileCache();
+      clearProfileCache(user?.id);
       router.push('/');
     } catch (error) {
       console.error('Error signing out:', error);
+    }
+  };
+
+  const refreshProfile = async () => {
+    if (user?.id) {
+      await fetchUserProfile(user.id, { forceRefresh: true });
     }
   };
 
@@ -255,6 +265,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading,
       isAuthenticated,
       signOut,
+      refreshProfile,
     }}>
       {children}
       <GenderSelectionPopup

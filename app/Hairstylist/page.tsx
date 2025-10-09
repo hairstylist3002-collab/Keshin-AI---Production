@@ -51,7 +51,7 @@ export default function HairstylistPage() {
   const targetInputRef = useRef<HTMLInputElement>(null);
 
   // Authentication context
-  const { user, profile, loading, isAuthenticated, signOut } = useAuthContext();
+  const { user, profile, loading, isAuthenticated, signOut, refreshProfile } = useAuthContext();
   const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
 
   // Authentication guard - redirect if not authenticated or no profile
@@ -75,6 +75,7 @@ export default function HairstylistPage() {
     });
 
     if (profile?.credits !== undefined) {
+      // Only sync if the profile credits are different and we haven't just manually updated
       if (profile.credits !== currentCredits) {
         console.log(`Syncing credits: ${currentCredits} -> ${profile.credits}`);
         setCurrentCredits(profile.credits);
@@ -338,7 +339,7 @@ export default function HairstylistPage() {
       if (result.newCredits !== undefined) {
         console.log(`✅ Updating credits from backend: ${currentCredits} -> ${result.newCredits}`);
         setCurrentCredits(result.newCredits);
-        
+
         if (!result.creditsDeducted) {
           console.warn('⚠️ WARNING: Image generated but credit deduction failed on backend');
           // Could show a warning to the user here
@@ -347,6 +348,15 @@ export default function HairstylistPage() {
         }
       } else {
         console.warn('⚠️ No credit information in response');
+      }
+
+      // ✅ Refresh profile to ensure AuthContext has latest data
+      try {
+        await refreshProfile();
+        console.log('✅ Profile refreshed after processing');
+      } catch (profileRefreshError) {
+        console.warn('⚠️ Failed to refresh profile after processing:', profileRefreshError);
+        // Don't fail the flow if profile refresh fails - the credit update above is still valid
       }
 
     } catch (err) {

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { performHairstyleTransfer } from '../../lib/hairstyleService';
-import { supabase } from '@/lib/supabase';
-import { updateUserCredits, getUserProfile } from '@/lib/userService';
-import { createServerClient } from '@supabase/ssr';
+import { supabaseService } from '@/lib/supabase';
+import { updateUserCredits } from '@/lib/userService';
 
 // Ensure this route uses the Node.js runtime (Buffers, SDK compatibility)
 export const runtime = 'nodejs';
@@ -25,39 +24,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ NEW: Create authenticated Supabase client with SSR
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name) { return null; },
-          set(name, value, options) { },
-          remove(name, options) { },
-        },
-      }
-    );
+    // ✅ Verify token using service role (admin) client
+    const { data: tokenUser, error: tokenError } = await supabaseService.auth.getUser(token);
 
-    // ✅ NEW: Set the session using the JWT token for RLS
-    const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-      access_token: token,
-      refresh_token: '',
-    });
-
-    console.log('🔐 Session setup:', {
-      sessionError: sessionError?.message,
-      hasSession: !!sessionData?.session,
-      userId: sessionData?.session?.user?.id
-    });
-
-    // ✅ Verify authentication context
-    const { data: { user: authUser } } = await supabase.auth.getUser();
-    console.log('🔑 Auth context after session setup:', {
-      authUserId: authUser?.id,
-      authUserEmail: authUser?.email,
+    console.log('🔐 Token verification result:', {
+      tokenError: tokenError?.message,
+      tokenUserId: tokenUser?.user?.id,
       providedUserId: userId,
-      authMatches: authUser?.id === userId
+      authMatches: tokenUser?.user?.id === userId
     });
+
+    if (tokenError || !tokenUser?.user) {
+      return NextResponse.json(
+        { error: 'Invalid authentication token' },
+        { status: 401 }
+      );
+    }
+
+    if (!userId || tokenUser.user.id !== userId) {
+      return NextResponse.json(
+        { error: 'User mismatch detected' },
+        { status: 403 }
+      );
+    }
     if (!userId) {
       return NextResponse.json(
         { error: 'User ID is required' },
@@ -83,17 +72,29 @@ export async function POST(request: NextRequest) {
 
     // ✅ STEP 1: Check user credits BEFORE processing
     console.log('💳 Checking user credits...');
-    const profileResult = await getUserProfile(userId);
-    
-    if (!profileResult.success || !profileResult.data) {
-      console.error('❌ Failed to get user profile:', profileResult.error);
+    const { data: profileData, error: profileError } = await supabaseService
+      .from('user_profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error('❌ Failed to get user profile:', profileError.message);
       return NextResponse.json(
         { error: 'Failed to retrieve user profile. Please try again.' },
         { status: 500 }
       );
     }
 
-    const currentCredits = profileResult.data.credits;
+    if (!profileData) {
+      console.error('❌ User profile not found for user:', userId);
+      return NextResponse.json(
+        { error: 'User profile not found' },
+        { status: 404 }
+      );
+    }
+
+    const currentCredits = profileData.credits;
     console.log(`💰 User has ${currentCredits} credits`);
 
     if (currentCredits <= 0) {

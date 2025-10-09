@@ -33,6 +33,26 @@ export default function SignupPage() {
     type: 'info'
   });
 
+  useEffect(() => {
+    const status = searchParams.get('status');
+    if (status === 'existing') {
+      setIsSignup(false);
+      setAuthError({
+        category: 'AUTHENTICATION',
+        message: 'Account already exists. Please sign in instead.',
+        userMessage: 'Account already exists. Please sign in instead.',
+        code: 'USER_ALREADY_EXISTS',
+        type: 'warning',
+        severity: 'low',
+        recoverable: true
+      });
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('authIntent');
+      }
+      router.replace('/signup');
+    }
+  }, [router, searchParams]);
+
   // Check if user is already authenticated
   useEffect(() => {
     if (isAuthenticated) {
@@ -116,6 +136,20 @@ export default function SignupPage() {
   const handleSignup = async () => {
     setAuthError(null);
 
+    // Block creating a new account if user is already authenticated
+    if (isAuthenticated) {
+      setAuthError({
+        category: 'AUTHENTICATION',
+        message: 'Already signed in - cannot create a new account while logged in',
+        userMessage: 'You are already signed in. Please sign out first to create a new account.',
+        code: 'ALREADY_AUTHENTICATED',
+        type: 'warning',
+        severity: 'low',
+        recoverable: true
+      });
+      return;
+    }
+
     // Validation
     const nameValidation = validateName(authForm.name);
     if (!nameValidation.isValid) {
@@ -174,6 +208,24 @@ export default function SignupPage() {
     setAuthLoading(true);
 
     try {
+      // Pre-check on server: does this email already exist?
+      try {
+        const resp = await fetch('/api/auth/check-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: authForm.email.trim().toLowerCase() })
+        });
+        const payload = await resp.json().catch(() => ({}));
+        if (resp.ok && payload?.exists) {
+          setAuthLoading(false);
+          router.replace('/signup?status=existing');
+          return;
+        }
+      } catch (precheckErr) {
+        // Non-blocking: if precheck fails, continue to Supabase signUp which will enforce uniqueness
+        console.warn('Email existence precheck failed, proceeding with sign up:', precheckErr);
+      }
+
       // Get referral code from localStorage if exists
       const referralCode = localStorage.getItem('referralCode') || undefined;
 
@@ -185,8 +237,18 @@ export default function SignupPage() {
       );
 
       if (!result.success) {
+        if (result.code === 'USER_ALREADY_EXISTS') {
+          setAuthLoading(false);
+          router.replace('/signup?status=existing');
+          return;
+        }
+
         const categorizedError = categorizeError({ message: result.error });
         setAuthError(categorizedError);
+      } else if (result.created === false) {
+        setAuthLoading(false);
+        router.replace('/signup?status=existing');
+        return;
       } else {
         // Successful signup - show email confirmation notification
         resetAuthForms();
@@ -215,8 +277,26 @@ export default function SignupPage() {
     setAuthLoading(true);
 
     try {
+      // Block Google sign up/sign in as new while already authenticated
+      if (isAuthenticated) {
+        setAuthError({
+          category: 'AUTHENTICATION',
+          message: 'Already signed in - cannot start Google sign up while logged in',
+          userMessage: 'You are already signed in. Please sign out first to continue with Google.',
+          code: 'ALREADY_AUTHENTICATED',
+          type: 'warning',
+          severity: 'low',
+          recoverable: true
+        });
+        return;
+      }
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('authIntent', isSignup ? 'signup' : 'signin');
+      }
+
       const result = await handleGoogleSignin();
-      if (!result.success) {
+      if (!result.success && result.code !== 'USER_ALREADY_EXISTS') {
         const categorizedError = categorizeError({ message: result.error });
         setAuthError(categorizedError);
       }

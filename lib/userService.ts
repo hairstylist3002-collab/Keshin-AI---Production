@@ -37,12 +37,12 @@ export const generateReferralCode = (): string => {
 /**
  * Create or update user profile in the database
  */
-export const createOrUpdateUserProfile = async (userData: CreateUserData): Promise<{ success: boolean; error?: string; data?: UserProfile }> => {
+export const createOrUpdateUserProfile = async (userData: CreateUserData): Promise<{ success: boolean; error?: string; data?: UserProfile; created?: boolean }> => {
   try {
     // Check if the profile already exists to determine referral code assignment
     const { data: existingProfile, error: existingProfileError } = await supabase
       .from('user_profiles')
-      .select('id, referral_code')
+      .select('*')
       .eq('id', userData.id)
       .maybeSingle();
 
@@ -54,61 +54,76 @@ export const createOrUpdateUserProfile = async (userData: CreateUserData): Promi
     }
 
     const isNewProfile = !existingProfile;
-    const referralCode = isNewProfile
-      ? generateReferralCode()
-      : existingProfile?.referral_code || userData.referral_code || generateReferralCode();
 
-    // First try to create/update using upsert
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .upsert({
+    if (isNewProfile) {
+      const insertPayload = {
         id: userData.id,
         name: userData.name,
         email: userData.email,
-        gender: userData.gender || null, // Ensure gender is included, default to null if not provided
-        referral_code: referralCode,
-        credits: userData.credits || 2, // Default to 2 credits for new users
+        gender: userData.gender ?? null,
+        referral_code: userData.referral_code || generateReferralCode(),
+        credits: userData.credits ?? 2,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
-      })
+      };
+
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .insert(insertPayload)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating user profile:', error);
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, data: data as UserProfile, created: true };
+    }
+
+    const updatePayload: Partial<UserProfile> & { updated_at: string } = {
+      updated_at: new Date().toISOString()
+    };
+
+    if (userData.name && userData.name !== existingProfile.name) {
+      updatePayload.name = userData.name;
+    }
+
+    if (userData.email && userData.email !== existingProfile.email) {
+      updatePayload.email = userData.email;
+    }
+
+    if (userData.gender !== undefined && userData.gender !== existingProfile.gender) {
+      updatePayload.gender = userData.gender;
+    }
+
+    if (userData.credits !== undefined) {
+      const shouldInitializeCredits = existingProfile.credits === null || existingProfile.credits === undefined;
+      if (shouldInitializeCredits) {
+        updatePayload.credits = userData.credits;
+      }
+    }
+
+    if (userData.referral_code) {
+      const hasReferral = existingProfile.referral_code && existingProfile.referral_code.trim() !== '';
+      if (!hasReferral) {
+        updatePayload.referral_code = userData.referral_code;
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .update(updatePayload)
+      .eq('id', userData.id)
       .select()
       .single();
 
     if (error) {
-      console.error('Error creating/updating user profile:', error);
-      
-      // Try fallback method using RPC call
-      try {
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .rpc('create_user_profile_manually', {
-            user_id: userData.id,
-            user_name: userData.name,
-            user_email: userData.email,
-            user_gender: userData.gender,
-            user_credits: userData.credits || 2,
-            user_referral_code: referralCode
-          });
-
-        if (fallbackError) {
-          console.error('Fallback method also failed:', fallbackError);
-          return { success: false, error: `Database error: ${error.message}. Fallback also failed: ${fallbackError.message}` };
-        }
-
-        if (fallbackData) {
-          // Fallback succeeded, now fetch the created profile
-          const { data: profileData, error: fetchError } = await getUserProfile(userData.id);
-          if (fetchError) {
-            return { success: true, error: 'Profile created via fallback but could not be retrieved' };
-          }
-          return { success: true, data: profileData };
-        }
-      } catch (fallbackError) {
-        console.error('Fallback method exception:', fallbackError);
-        return { success: false, error: `Database error: ${error.message}. Fallback failed with exception` };
-      }
+      console.error('Error updating user profile:', error);
+      return { success: false, error: error.message };
     }
 
-    return { success: true, data: data as UserProfile };
+    return { success: true, data: data as UserProfile, created: false };
   } catch (error) {
     console.error('Unexpected error in createOrUpdateUserProfile:', error);
     return { success: false, error: 'An unexpected error occurred while saving user data' };
@@ -222,7 +237,7 @@ export const extractGoogleUserData = (googleUser: any): CreateUserData => {
 /**
  * Handle user data storage after authentication
  */
-export const handleUserAuthData = async (userId: string, name?: string, email?: string, isGoogleAuth = false, gender?: string): Promise<{ success: boolean; error?: string }> => {
+export const handleUserAuthData = async (userId: string, name?: string, email?: string, isGoogleAuth = false, gender?: string): Promise<{ success: boolean; error?: string; created?: boolean }> => {
   try {
     // Get the current user session to extract additional data
     const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -251,19 +266,17 @@ export const handleUserAuthData = async (userId: string, name?: string, email?: 
 
     // Create or update user profile
     const result = await createOrUpdateUserProfile(userData);
-    
+
     if (!result.success) {
       console.warn('User profile creation failed, but authentication succeeded:', result.error);
       // Don't fail the authentication process, just log the warning
       // The user can still use the app, they just won't have a profile yet
-      return { success: true, error: 'Profile creation warning' };
+      return { success: true, error: 'Profile creation warning', created: result.created };
     }
 
-    return { success: true };
+    return { success: true, created: result.created };
   } catch (error) {
     console.error('Error in handleUserAuthData:', error);
-    // Don't fail the authentication process due to data storage issues
-    // The user can still authenticate and use the app
-    return { success: true, error: 'Data storage warning' };
+    return { success: true, error: 'Data storage warning', created: false };
   }
 };

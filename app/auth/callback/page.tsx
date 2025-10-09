@@ -16,12 +16,37 @@ export default function AuthCallback() {
       try {
         // Handle OAuth callback and store user data
         const result = await handleOAuthCallback();
+        const authIntent = typeof window !== 'undefined' ? localStorage.getItem('authIntent') : null;
+
+        const clearAuthIntent = () => {
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('authIntent');
+          }
+        };
 
         if (!result.success) {
+          if (result.code === 'USER_ALREADY_EXISTS') {
+            console.warn('OAuth signup attempted for existing account. Redirecting to signup.');
+            await supabase.auth.signOut();
+            router.push('/signup?status=existing');
+            clearAuthIntent();
+            return;
+          }
+
           console.warn('OAuth callback had issues, but authentication may have succeeded:', result.error);
           // Don't show error to user, just log and redirect
           // The user can still use the app even if profile creation failed
         }
+
+        if (result.success && result.created === false && authIntent === 'signup') {
+          console.warn('OAuth signup detected existing account. Redirecting user to sign-in.');
+          await supabase.auth.signOut();
+          router.push('/signup?status=existing');
+          clearAuthIntent();
+          return;
+        }
+
+        clearAuthIntent();
 
         // Check for referral code in URL and process it
         const referralCode = searchParams.get('ref');

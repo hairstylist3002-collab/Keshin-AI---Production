@@ -6,6 +6,8 @@ export interface AuthResult {
   error?: string;
   userData?: any;
   data?: any;
+  code?: string;
+  created?: boolean;
 }
 
 /**
@@ -22,6 +24,13 @@ export const handleEmailSignup = async (
     const { data, error } = await signUp(email, password, name, referralCode);
     
     if (error) {
+      if (error.message === 'User already registered') {
+        return {
+          success: false,
+          error: 'Account already exists. Please sign in instead.',
+          code: 'USER_ALREADY_EXISTS'
+        };
+      }
       return { success: false, error: error.message };
     }
 
@@ -57,6 +66,7 @@ export const handleEmailSignup = async (
 
       return { 
         success: true, 
+        created: userResult.created,
         userData: {
           id: data.user.id,
           email: data.user.email,
@@ -150,6 +160,7 @@ export const handleOAuthCallback = async (): Promise<AuthResult> => {
 
     return { 
       success: true, 
+      created: userResult.created,
       userData: {
         id: user.id,
         email: user.email,
