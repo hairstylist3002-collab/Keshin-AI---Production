@@ -26,6 +26,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [showGenderPopup, setShowGenderPopup] = useState(false);
   const router = useRouter();
 
+  const processPendingReferral = async (newUserId: string) => {
+    if (typeof window === 'undefined') return;
+
+    const referralCode = window.localStorage.getItem('referralCode');
+    if (!referralCode) {
+      return;
+    }
+
+    console.log('[AuthContext] Found pending referral code, processing...', {
+      referralCode,
+      newUserId
+    });
+
+    try {
+      const response = await fetch('/api/handle-referral', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ referralCode, newUserId })
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      console.log('[AuthContext] Referral API response', {
+        status: response.status,
+        ok: response.ok,
+        payload
+      });
+
+      if (response.ok) {
+        window.localStorage.removeItem('referralCode');
+        console.log('[AuthContext] Referral processed successfully and code cleared');
+        await fetchUserProfile(newUserId, { forceRefresh: true });
+      } else {
+        console.warn('[AuthContext] Referral processing failed', payload?.error || response.statusText);
+      }
+    } catch (error) {
+      console.error('[AuthContext] Error calling referral API', error);
+    }
+  };
+
   useEffect(() => {
     const getSession = async () => {
       try {
@@ -37,6 +79,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(session.user);
           const success = await fetchUserProfile(session.user.id);
           setIsAuthenticated(success);
+          if (success) {
+            await processPendingReferral(session.user.id);
+          }
         } else {
           console.log('❌ No active session found');
           setIsAuthenticated(false);
@@ -61,6 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const success = await fetchUserProfile(session.user.id);
           setIsAuthenticated(success);
           if (success) {
+            await processPendingReferral(session.user.id);
             router.push('/Hairstylist');
           }
         } else if (event === 'SIGNED_OUT') {

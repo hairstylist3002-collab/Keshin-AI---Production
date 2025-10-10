@@ -44,7 +44,7 @@ const ReferralCard: React.FC = () => {
         <div className="space-y-1">
           <h2 className="text-lg font-semibold text-white tracking-tight">Invite friends, earn credits</h2>
           <p className="text-sm text-neutral-400">
-            {profile?.name ? `Hey ${profile.name.split(" ")[0]},` : ""} Share your unique link. Friends who join with it unlock 3 bonus credits for you.
+            {profile?.name ? `Hey ${profile.name.split(" ")[0]},` : ""} Share your unique link. Friends who join with it unlock 1 bonus credits for you.
           </p>
         </div>
 

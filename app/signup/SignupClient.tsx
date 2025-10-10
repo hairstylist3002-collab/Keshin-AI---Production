@@ -255,7 +255,8 @@ export default function SignupClient() {
       } else {
         // Successful signup - show email confirmation notification
         resetAuthForms();
-        localStorage.removeItem('referralCode');
+        // Note: referralCode is NOT removed here - AuthContext will process it after email confirmation
+        // and remove it once the referral API call succeeds
 
         // Show email confirmation notification
         setNotification({

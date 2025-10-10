@@ -41,33 +41,6 @@ export const handleEmailSignup = async (
 
       const created = true;
 
-      if (referralCode) {
-        console.log('🎫 Processing referral code:', referralCode);
-        try {
-          const response = await fetch('/api/handle-referral', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              referralCode,
-              newUserId: data.user.id
-            })
-          });
-
-          console.log('📡 Referral API response:', response.status, response.ok);
-
-          if (!response.ok) {
-            const payload = await response.json().catch(() => ({}));
-            console.error('❌ Referral API responded with an error:', payload?.error || response.statusText);
-          } else {
-            console.log('✅ Referral API call successful');
-          }
-        } catch (apiError) {
-          console.error('❌ Referral API call failed:', apiError);
-        }
-      }
-
       return {
         success: true,
         created,
