@@ -11,6 +11,8 @@ export const supabaseService = createClient(supabaseUrl, supabaseServiceKey || s
 
 // Auth helper functions
 export const signUp = async (email: string, password: string, name: string, referralCode?: string) => {
+  console.log('🔐 Starting signup for:', email, { hasReferralCode: !!referralCode });
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -21,7 +23,9 @@ export const signUp = async (email: string, password: string, name: string, refe
       }
     }
   })
-  
+
+  console.log('📋 Signup result:', { data: !!data, error: error?.message });
+
   return { data, error }
 }
 
@@ -52,6 +56,7 @@ export const onAuthStateChange = (callback: (event: string, session: any) => voi
 export const signInWithGoogle = async () => {
   // Get referral code from localStorage if exists
   const referralCode = localStorage.getItem('referralCode');
+  console.log('🔗 Google OAuth with referral code:', referralCode);
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
@@ -61,6 +66,8 @@ export const signInWithGoogle = async () => {
       queryParams: { prompt: 'select_account' }
     }
   })
+
+  console.log('📋 Google OAuth result:', { data: !!data, error: error?.message });
 
   return { data, error }
 }

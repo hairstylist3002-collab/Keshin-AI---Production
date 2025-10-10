@@ -1,105 +1,101 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-interface ReferralRequestBody {
-  referralCode?: string;
-  newUserId?: string;
-}
-
+// Initialize Supabase Admin Client for secure, server-side operations
 const getSupabaseAdminClient = () => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !supabaseServiceRoleKey) {
-    throw new Error("Missing Supabase environment variables");
+    throw new Error("Missing Supabase admin environment variables.");
   }
-
-  return createClient(supabaseUrl, supabaseServiceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  });
+  return createClient(supabaseUrl, supabaseServiceRoleKey);
 };
 
 export async function POST(request: NextRequest) {
+  const { referralCode, newUserId } = await request.json();
+
+  console.log('[ReferralAPI] Incoming request', { referralCode, newUserId });
+
+  if (!referralCode || !newUserId) {
+    console.warn('[ReferralAPI] Missing referral code or new user id');
+    return NextResponse.json({ success: false, error: "Missing referral code or new user ID." }, { status: 400 });
+  }
+
+  const supabaseAdmin = getSupabaseAdminClient();
+
   try {
-    const body: ReferralRequestBody = await request.json();
-    const { referralCode, newUserId } = body;
-
-    if (!referralCode || !newUserId) {
-      return NextResponse.json(
-        { success: false, error: "Missing referralCode or newUserId" },
-        { status: 400 }
-      );
-    }
-
-    const supabaseAdmin = getSupabaseAdminClient();
-
-    // Fetch the referrer profile using the referral code
-    const { data: referrerProfile, error: referrerError } = await supabaseAdmin
+    // Find the user who made the referral (the referrer)
+    const { data: referrer, error: referrerError } = await supabaseAdmin
       .from("user_profiles")
       .select("id, credits")
       .eq("referral_code", referralCode)
-      .maybeSingle();
+      .single();
 
-    if (referrerError) {
-      return NextResponse.json(
-        { success: false, error: `Error fetching referrer profile: ${referrerError.message}` },
-        { status: 500 }
-      );
+    console.log('[ReferralAPI] Referrer lookup result', {
+      hasReferrer: !!referrer,
+      referrerId: referrer?.id,
+      referrerCredits: referrer?.credits,
+      referrerError: referrerError?.message
+    });
+
+    if (referrerError || !referrer) {
+      return NextResponse.json({ success: false, error: "Referral code not found." }, { status: 404 });
     }
 
-    if (!referrerProfile) {
-      return NextResponse.json(
-        { success: false, error: "Referral code not found" },
-        { status: 404 }
-      );
+    // A user cannot refer themselves.
+    if (referrer.id === newUserId) {
+      console.warn('[ReferralAPI] Self-referral detected', { referrerId: referrer.id, newUserId });
+      return NextResponse.json({ success: false, error: "Self-referrals are not allowed." }, { status: 400 });
     }
 
-    if (referrerProfile.id === newUserId) {
-      return NextResponse.json(
-        { success: false, error: "Self-referrals are not allowed" },
-        { status: 400 }
-      );
-    }
-
-    // Insert referral record to track the relationship
-    const { error: referralInsertError } = await supabaseAdmin.from("referrals").insert({
-      referrer_id: referrerProfile.id,
+    // Rule #3: Log the referral in the 'referrals' table.
+    // This will fail if the new user has already been referred, thanks to the unique constraint.
+    const { data: referralInsertData, error: referralInsertError } = await supabaseAdmin.from("referrals").insert({
+      referrer_id: referrer.id,
       referee_id: newUserId
+    }).select('id, referrer_id, referee_id').maybeSingle();
+
+    console.log('[ReferralAPI] Referral insert result', {
+      referralInsertError: referralInsertError?.message,
+      referralInsertData
     });
 
     if (referralInsertError) {
-      return NextResponse.json(
-        { success: false, error: `Unable to record referral: ${referralInsertError.message}` },
-        { status: 409 }
-      );
+      if (referralInsertError.code === '23505') { // unique_violation
+        return NextResponse.json({ success: false, error: "This user has already been referred." }, { status: 409 });
+      }
+      throw referralInsertError; // For other unexpected database errors.
     }
 
-    // Increment credits for the referrer
-    const { error: updateError } = await supabaseAdmin
+    // Rule #1 (Referrer Bonus): Award +1 credit to the referrer.
+    const { data: updatedReferrer, error: updateError } = await supabaseAdmin
       .from("user_profiles")
-      .update({
-        credits: (referrerProfile.credits || 0) + 1,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", referrerProfile.id)
-      .single();
+      .update({ credits: (referrer.credits || 0) + 1 })
+      .eq("id", referrer.id)
+      .select('id, credits')
+      .maybeSingle();
+
+    console.log('[ReferralAPI] Credit update result', {
+      updateError: updateError?.message,
+      updatedReferrer
+    });
 
     if (updateError) {
-      return NextResponse.json(
-        { success: false, error: `Failed to update credits: ${updateError.message}` },
-        { status: 500 }
-      );
+      throw updateError;
     }
 
-    return NextResponse.json({ success: true });
+    console.log('[ReferralAPI] Referral processing complete', {
+      referrerId: referrer.id,
+      newUserId,
+      awardedCredits: (referrer.credits || 0) + 1
+    });
+
+    return NextResponse.json({ success: true, message: "Referrer credited successfully." });
+
   } catch (error) {
-    console.error("Referral handler error:", error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 }
-    );
+    console.error("Referral processing error:", error);
+    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+    return NextResponse.json({ success: false, error: `Internal Server Error: ${errorMessage}`  }, { status: 500 });
   }
 }

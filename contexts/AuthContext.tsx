@@ -24,80 +24,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showGenderPopup, setShowGenderPopup] = useState(false);
-  const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    // Get initial session
     const getSession = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('Error getting session:', error);
-          setLoading(false);
-          setHasCheckedAuth(true);
-          return;
-        }
+        console.log('🔐 Getting initial session...');
+        const { data: { session } } = await supabase.auth.getSession();
 
         if (session?.user) {
+          console.log('✅ Session found, user:', session.user.id);
           setUser(session.user);
-          await fetchUserProfile(session.user.id);
+          const success = await fetchUserProfile(session.user.id);
+          setIsAuthenticated(success);
         } else {
+          console.log('❌ No active session found');
           setIsAuthenticated(false);
-          setUser(null);
-          setProfile(null);
+          setLoading(false);
         }
       } catch (error) {
-        console.error('Error in getSession:', error);
-      } finally {
+        console.error('❌ Error getting session:', error);
+        setIsAuthenticated(false);
         setLoading(false);
-        setHasCheckedAuth(true);
       }
     };
 
     getSession();
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        try {
-          if (session?.user) {
-            // If switching users, clear any previous profile/cache
-            setUser((prev) => {
-              if (prev && prev.id !== session.user!.id) {
-                setProfile(null);
-                setIsAuthenticated(false);
-              }
-              return session.user!;
-            });
-            // For auth state changes (like token refresh), try cache first for speed
-            const cached = loadProfileFromCache(session.user.id);
-            if (cached) {
-              setProfile(cached);
-              setIsAuthenticated(true);
-              setLoading(false);
-            } else {
-              await fetchUserProfile(session.user.id);
-            }
-          } else {
-            setUser(null);
-            setProfile(null);
-            setIsAuthenticated(false);
+        console.log('🔄 Auth state change:', event, { hasSession: !!session, userId: session?.user?.id });
+
+        if (event === 'SIGNED_IN' && session?.user) {
+          console.log('✅ User signed in, fetching profile for:', session.user.id);
+          setUser(session.user);
+          const success = await fetchUserProfile(session.user.id);
+          setIsAuthenticated(success);
+          if (success) {
+            router.push('/Hairstylist');
           }
-        } catch (error) {
-          console.error('Error in auth state change:', error);
-        } finally {
+        } else if (event === 'SIGNED_OUT') {
+          console.log('🚪 User signed out');
+          setUser(null);
+          setProfile(null);
+          setIsAuthenticated(false);
           setLoading(false);
+          router.push('/');
         }
       }
     );
 
-    return () => {
-      if (subscription) {
-        subscription.unsubscribe();
-      }
-    };
+    return () => subscription.unsubscribe();
   }, [router]);
 
   const getCacheKey = (userId: string) => `keshin-profile-${userId}`;
@@ -118,120 +95,77 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const saveProfileToCache = (userId: string, profileData: UserProfile) => {
     if (typeof window === 'undefined') return;
     try {
-      sessionStorage.setItem(getCacheKey(userId), JSON.stringify({ data: profileData, timestamp: Date.now() }));
+      sessionStorage.setItem(
+        getCacheKey(userId),
+        JSON.stringify({ data: profileData, timestamp: Date.now() })
+      );
     } catch (err) {
       console.warn('Failed to persist profile cache:', err);
     }
   };
 
-  const clearProfileCache = (userId?: string) => {
-    if (typeof window === 'undefined') return;
+  const fetchUserProfile = async (userId: string, { forceRefresh = false } = {}): Promise<boolean> => {
     try {
-      if (userId) {
-        sessionStorage.removeItem(getCacheKey(userId));
-      }
-    } catch {}
-  };
+      console.log('🔍 Fetching user profile for:', userId, { forceRefresh });
 
-  const fetchUserProfile = async (userId: string, { forceRefresh = false } = {}) => {
-    try {
       if (!forceRefresh) {
         const cached = loadProfileFromCache(userId);
         if (cached) {
+          console.log('✅ Using cached profile');
           setProfile(cached);
           setIsAuthenticated(true);
           setLoading(false);
-          return;
+          return true;
         }
       }
 
+      console.log('📡 Querying database for profile...');
       const result = await getUserProfile(userId);
-      
+
       if (result.success && result.data) {
+        console.log('✅ Profile fetched successfully:', result.data.email);
         setProfile(result.data);
         setIsAuthenticated(true);
         saveProfileToCache(userId, result.data);
 
-        // Check if user has gender set, if not show popup
         const genderValue = result.data.gender;
         const normalizedGender = typeof genderValue === 'string' ? genderValue.trim().toLowerCase() : genderValue;
         if (genderValue === null || genderValue === undefined || normalizedGender === '' || normalizedGender === 'null') {
-          console.log('Gender not set, showing gender popup for user:', userId, 'raw value:', genderValue, 'normalized:', normalizedGender);
           setShowGenderPopup(true);
         }
-      } else {
-        console.error('Failed to fetch user profile:', result.error);
-        throw new Error(result.error || 'Failed to fetch user profile');
-      }
-    } catch (error) {
-      console.error('Error in fetchUserProfile:', error);
-      
-      // Handle the case where profile doesn't exist
-      if (error instanceof Error && error.message.includes('not found')) {
-        console.warn('User profile not found, signing out');
-        setProfile(null);
-        setIsAuthenticated(false);
-        clearProfileCache(userId);
 
-        try {
-          // Sign out the user since their account was deleted
-          await supabase.auth.signOut();
-          setUser(null);
-        } catch (signOutError) {
-          console.error('Error during sign out:', signOutError);
-        }
-      } else {
-        console.error('Error fetching user profile:', error);
-        setProfile(null);
-        setIsAuthenticated(false);
-        clearProfileCache(userId);
+        setLoading(false);
+        return true;
       }
-    } finally {
+
+      console.warn('⚠️ Profile fetch failed:', result.error);
+      console.warn('Profile not found, but continuing with authentication');
+      setIsAuthenticated(false);
       setLoading(false);
+      return false;
+    } catch (error) {
+      console.error('❌ Error in fetchUserProfile:', error);
+      setIsAuthenticated(false);
+      setLoading(false);
+      return false;
     }
   };
 
-  useEffect(() => {
-    if (!profile || !isAuthenticated) return;
-
-    const genderValue = profile.gender;
-    const normalizedGender = typeof genderValue === 'string' ? genderValue.trim().toLowerCase() : genderValue;
-    const needsGender = genderValue === null || genderValue === undefined || normalizedGender === '' || normalizedGender === 'null';
-
-    if (needsGender) {
-      setShowGenderPopup(true);
-    } else {
-      setShowGenderPopup(false);
-    }
-  }, [profile, isAuthenticated]);
-
   const handleGenderSelect = async (gender: 'male' | 'female' | 'other'): Promise<boolean> => {
-    if (!user) {
-      console.warn('handleGenderSelect called without an authenticated user');
-      return false;
-    }
-
+    if (!user) return false;
     try {
-      // Call secure API to update gender with service role (bypasses RLS)
       const res = await fetch('/api/profile/gender', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, gender })
       });
-
       const payload = await res.json();
-      if (!res.ok || !payload?.success) {
-        throw new Error(payload?.error || 'Failed to update gender');
-      }
+      if (!res.ok || !payload.success) throw new Error(payload.error);
 
       const serverProfile: UserProfile = payload.data;
-
-      // Update local profile state and cache from server source of truth
       setProfile(serverProfile);
       saveProfileToCache(user.id, serverProfile);
       setShowGenderPopup(false);
-
-      console.log('Gender updated successfully:', gender);
       return true;
     } catch (error) {
       console.error('Error updating gender:', error);
@@ -240,16 +174,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    try {
-      await supabase.auth.signOut();
-      setUser(null);
-      setProfile(null);
-      setIsAuthenticated(false);
-      clearProfileCache(user?.id);
-      router.push('/');
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
+    await supabase.auth.signOut();
   };
 
   const refreshProfile = async () => {

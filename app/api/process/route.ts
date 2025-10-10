@@ -1,12 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { performHairstyleTransfer } from '../../lib/hairstyleService';
-import { supabaseService } from '@/lib/supabase';
-import { updateUserCredits } from '@/lib/userService';
+import { createClient } from '@supabase/supabase-js';
+
+const getSupabaseAdminClient = () => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    throw new Error('Missing Supabase admin environment variables.');
+  }
+
+  return createClient(supabaseUrl, supabaseServiceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+};
 
 // Ensure this route uses the Node.js runtime (Buffers, SDK compatibility)
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
+  const supabaseAdmin = getSupabaseAdminClient();
+
   try {
     const formData = await request.formData();
     const sourceImage = formData.get('sourceImage') as File;
@@ -25,7 +42,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ✅ Verify token using service role (admin) client
-    const { data: tokenUser, error: tokenError } = await supabaseService.auth.getUser(token);
+    const { data: tokenUser, error: tokenError } = await supabaseAdmin.auth.getUser(token);
 
     console.log('🔐 Token verification result:', {
       tokenError: tokenError?.message,
@@ -72,7 +89,7 @@ export async function POST(request: NextRequest) {
 
     // ✅ STEP 1: Check user credits BEFORE processing
     console.log('💳 Checking user credits...');
-    const { data: profileData, error: profileError } = await supabaseService
+    const { data: profileData, error: profileError } = await supabaseAdmin
       .from('user_profiles')
       .select('*')
       .eq('id', userId)
@@ -148,18 +165,23 @@ export async function POST(request: NextRequest) {
     console.log('💳 Deducting 1 credit from user account...');
     const newCredits = Math.max(0, currentCredits - 1);
     
-    const creditUpdateResult = await updateUserCredits(userId, newCredits);
-    
-    if (!creditUpdateResult.success) {
-      console.error('❌ Failed to deduct credit:', creditUpdateResult.error);
-      // IMPORTANT: Image was generated successfully, so we still return it
-      // but log the credit deduction failure
+    const { data: updatedProfile, error: creditUpdateError } = await supabaseAdmin
+      .from('user_profiles')
+      .update({
+        credits: newCredits,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId)
+      .select('id, credits')
+      .maybeSingle();
+
+    const creditUpdateSucceeded = !creditUpdateError && !!updatedProfile;
+
+    if (!creditUpdateSucceeded) {
+      console.error('❌ Failed to deduct credit:', creditUpdateError?.message);
       console.warn('⚠️ WARNING: Credit deduction failed but image was generated');
-      
-      // We could implement a retry mechanism or queue here for production
-      // For now, return the image with a warning
     } else {
-      console.log(`✅ Credit deducted successfully. New balance: ${newCredits} credits`);
+      console.log('✅ Credit deducted successfully. New balance:', updatedProfile.credits);
     }
 
     const processedImageDataUrl = `data:${result.mimeType};base64,${result.imageBase64}`;
@@ -168,9 +190,9 @@ export async function POST(request: NextRequest) {
       success: true,
       processedImage: processedImageDataUrl,
       message: 'Hair style transformation completed successfully',
-      creditsDeducted: creditUpdateResult.success,
-      currentCredits: creditUpdateResult.success ? newCredits : currentCredits,
-      newCredits: creditUpdateResult.success ? newCredits : currentCredits
+      creditsDeducted: creditUpdateSucceeded,
+      currentCredits: creditUpdateSucceeded ? updatedProfile?.credits ?? newCredits : currentCredits,
+      newCredits: creditUpdateSucceeded ? updatedProfile?.credits ?? newCredits : currentCredits
     });
 
   } catch (error) {

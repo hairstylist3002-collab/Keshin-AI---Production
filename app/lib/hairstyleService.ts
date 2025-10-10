@@ -220,7 +220,7 @@ if (!process.env.GEMINI_API_KEY) {
 }
 
 const apiKey = process.env.GEMINI_API_KEY;
-console.log('Using Gemini API Key:', apiKey);
+// console.log('Using Gemini API Key:', apiKey);
 const genAI = new GoogleGenerativeAI(apiKey);
 
 /**

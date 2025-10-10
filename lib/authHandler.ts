@@ -1,5 +1,4 @@
 import { signUp, signIn, signInWithGoogle, supabase } from './supabase';
-import { handleUserAuthData } from './userService';
 
 export interface AuthResult {
   success: boolean;
@@ -20,10 +19,13 @@ export const handleEmailSignup = async (
   referralCode?: string
 ): Promise<AuthResult> => {
   try {
+    console.log('🔄 Starting email signup for:', email, { hasReferralCode: !!referralCode });
+
     // First, perform the authentication
     const { data, error } = await signUp(email, password, name, referralCode);
-    
+
     if (error) {
+      console.error('❌ Signup error:', error);
       if (error.message === 'User already registered') {
         return {
           success: false,
@@ -35,38 +37,40 @@ export const handleEmailSignup = async (
     }
 
     if (data?.user) {
+      console.log('✅ User created successfully:', data.user.id);
+
+      const created = true;
+
       if (referralCode) {
-        void fetch('/api/handle-referral', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            referralCode,
-            newUserId: data.user.id
-          })
-        }).catch((apiError) => {
-          console.error('Referral API call failed:', apiError);
-        });
+        console.log('🎫 Processing referral code:', referralCode);
+        try {
+          const response = await fetch('/api/handle-referral', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              referralCode,
+              newUserId: data.user.id
+            })
+          });
+
+          console.log('📡 Referral API response:', response.status, response.ok);
+
+          if (!response.ok) {
+            const payload = await response.json().catch(() => ({}));
+            console.error('❌ Referral API responded with an error:', payload?.error || response.statusText);
+          } else {
+            console.log('✅ Referral API call successful');
+          }
+        } catch (apiError) {
+          console.error('❌ Referral API call failed:', apiError);
+        }
       }
 
-      // Store user data in the database (non-blocking)
-      const userResult = await handleUserAuthData(
-        data.user.id,
-        name,
-        email,
-        false, // Not Google auth
-        undefined // gender - no longer collected
-      );
-
-      if (!userResult.success) {
-        console.warn('User data storage failed, but authentication succeeded:', userResult.error);
-        // Don't fail the auth process, just log the warning
-      }
-
-      return { 
-        success: true, 
-        created: userResult.created,
+      return {
+        success: true,
+        created,
         userData: {
           id: data.user.id,
           email: data.user.email,
@@ -75,9 +79,10 @@ export const handleEmailSignup = async (
       };
     }
 
+    console.error('❌ No user data returned from authentication');
     return { success: false, error: 'No user data returned from authentication' };
   } catch (error) {
-    console.error('Error in handleEmailSignup:', error);
+    console.error('❌ Error in handleEmailSignup:', error);
     return { success: false, error: 'An unexpected error occurred during sign up' };
   }
 };
@@ -145,22 +150,9 @@ export const handleOAuthCallback = async (): Promise<AuthResult> => {
       return { success: false, error: 'Unable to get user data from OAuth callback' };
     }
 
-    // Store user data in the database (non-blocking)
-    const userResult = await handleUserAuthData(
-      user.id,
-      undefined, // Name will be extracted from Google data
-      undefined, // Email will be extracted from Google data
-      true // This is Google auth
-    );
-
-    if (!userResult.success) {
-      console.warn('OAuth user data storage failed, but authentication succeeded:', userResult.error);
-      // Don't fail the auth process, just log the warning
-    }
-
     return { 
       success: true, 
-      created: userResult.created,
+      created: false,
       userData: {
         id: user.id,
         email: user.email,
