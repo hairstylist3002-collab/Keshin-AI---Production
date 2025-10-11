@@ -60,24 +60,24 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
       before: "/examples/example-1-in-2.jpg",
       after: "/examples/example-1-out-2.png",
       inspiration: "/examples/example-1-in-1.jpeg",
-      title: "Modern Bob Cut",
-      description: "Clean, professional bob with textured layers"
+      title: "Find Your Signature Look",
+      description: "Unlock a new style that’s uniquely you."
     },
     {
       id: 2,
       before: "/examples/example-2-in-2.jpeg",
       after: "/examples/example-2-out-2.png",
       inspiration: "/examples/exapmle-2-in-1.jpg",
-      title: "Layered Style",
-      description: "Soft layers with face-framing highlights"
+      title: "Will It Suit Your Face Shape?",
+      description: "Stop wondering and see for yourself."
     },
     {
       id: 3,
       before: "/examples/example-3-in-2.jpg",
       after: "/examples/example-3-out-2.png",
       inspiration: "/examples/example-3-in-1.jpeg",
-      title: "Textured Fringe",
-      description: "Choppy fringe with volume and movement"
+      title: "Commit with Confidence",
+      description: "Ensure the style you pay for is the style you'll actually love."
     }
   ];
 
