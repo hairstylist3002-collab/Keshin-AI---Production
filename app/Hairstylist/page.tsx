@@ -46,6 +46,7 @@ export default function HairstylistPage() {
   const [uploadProgress, setUploadProgress] = useState<{source: number, target: number}>({source: 0, target: 0});
   const [processingProgress, setProcessingProgress] = useState<number>(0);
   const [showReferralModal, setShowReferralModal] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const sourceInputRef = useRef<HTMLInputElement>(null);
   const targetInputRef = useRef<HTMLInputElement>(null);
@@ -98,6 +99,20 @@ export default function HairstylistPage() {
       setCurrentCredits(0);
     }
   }, [profile, profile?.credits, currentCredits]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    if (isMobileMenuOpen) {
+      const previousOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = previousOverflow;
+      };
+    }
+
+    document.body.style.overflow = '';
+  }, [isMobileMenuOpen]);
 
   // Close dropdown when clicking outside
   // useEffect(() => {
@@ -444,85 +459,155 @@ export default function HairstylistPage() {
 
       <div className="container mx-auto px-4 py-6 max-w-6xl sm:py-8">
         {/* Header with User Info */}
-        <header className="flex items-center justify-between mb-6">
+        <header className="flex items-center justify-between mb-6 gap-2">
           <div className="flex items-center gap-2">
             <div className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-br from-fuchsia-500 to-indigo-600 text-white">
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z" />
               </svg>
             </div>
-            <span className="text-lg font-medium tracking-tight">AI Hairstylist</span>
+            <span className="text-base sm:text-lg font-medium tracking-tight">AI Hairstylist</span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {loading ? (
-              <ProfileSkeleton />
-            ) : user && profile && (
-              <div className="flex items-center gap-3">
-                <div className="hidden sm:flex items-center gap-2 text-sm text-neutral-300">
-                  {/* Profile Icon with Dropdown */}
-                  <div className="relative">
-                    <div className="flex items-center gap-2">
-                      <div className="h-6 w-6 rounded-full bg-gradient-to-br from-fuchsia-500 to-indigo-600 flex items-center justify-center text-xs text-white font-medium">
-                        {profile.name?.[0]?.toUpperCase() || user.email?.[0].toUpperCase()}
-                      </div>
-                      {/* <button
-                        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                        className="text-neutral-400 hover:text-white transition-colors"
-                      >
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </button> */}
+              <div className="hidden sm:block">
+                <ProfileSkeleton />
+              </div>
+            ) : user && profile ? (
+              <>
+                <button
+                  type="button"
+                  aria-label="Open menu"
+                  onClick={() => setIsMobileMenuOpen(true)}
+                  className="inline-flex items-center justify-center rounded-md border border-white/15 bg-white/5 p-2 text-white transition hover:bg-white/10 sm:hidden"
+                >
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                    <path d="M4 6h16" />
+                    <path d="M4 12h16" />
+                    <path d="M4 18h16" />
+                  </svg>
+                </button>
+
+                <div className="hidden sm:flex items-center gap-2 sm:gap-3">
+                  {/* Profile info - visible from sm and up */}
+                  <div className="flex items-center gap-2 text-sm text-neutral-300">
+                    {/* Profile Icon */}
+                    <div className="h-7 w-7 rounded-full bg-gradient-to-br from-fuchsia-500 to-indigo-600 flex items-center justify-center text-xs text-white font-medium">
+                      {profile.name?.[0]?.toUpperCase() || user.email?.[0].toUpperCase()}
                     </div>
 
-                    {/* Dropdown Menu */}
-                    {/* {isDropdownOpen && (
-                      <div className="absolute right-0 mt-2 w-48 bg-neutral-900 border border-neutral-700 rounded-lg shadow-lg z-50">
-                        <div className="py-1">
-                          <button
-                            className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-900/20 transition-colors"
-                            onClick={() => {
-                              // TODO: Implement delete account logic
-                              setIsDropdownOpen(false);
-                            }}
-                          >
-                            Delete Account
-                          </button>
-                        </div>
-                      </div>
-                    )} */}
+                    {/* Name label */}
+                    <span className="hidden md:inline truncate max-w-[120px] lg:max-w-none">{profile.name || user.email}</span>
+
+                    {/* Credits badge */}
+                    {profile && (
+                      <span className={`px-2 py-1 text-xs rounded-full whitespace-nowrap ${
+                        currentCredits <= 1
+                          ? 'bg-red-500/20 text-red-300'
+                          : 'bg-fuchsia-500/20 text-fuchsia-300'
+                      }`}>
+                        {currentCredits} credits
+                      </span>
+                    )}
                   </div>
-                  <span>{profile.name || user.email}</span>
-                  {profile && (
-                    <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
-                      currentCredits <= 1
-                        ? 'bg-red-500/20 text-red-300'
-                        : 'bg-fuchsia-500/20 text-fuchsia-300'
-                    }`}>
-                      {currentCredits} credits
-                    </span>
-                  )}
+
+                  {/* Get credits button */}
+                  <button
+                    onClick={() => setShowReferralModal(true)}
+                    className="inline-flex items-center gap-2 rounded-md bg-gradient-to-br from-fuchsia-500 to-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-lg shadow-fuchsia-600/20 ring-1 ring-white/10 transition hover:opacity-95"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3l2.286 6.857H21l-5.357 3.929L17.929 21 12 16.929 6.071 21l1.286-7.214L2 9.857h6.714L12 3z" />
+                    </svg>
+                    Get credits
+                  </button>
+
+                  {/* Sign out button */}
+                  <button
+                    onClick={handleSignOut}
+                    className="inline-flex rounded-md px-3 py-2 text-sm font-medium text-neutral-300 hover:text-white cursor-pointer transition"
+                  >
+                    Sign out
+                  </button>
+                </div>
+              </>
+            ) : null}
+          </div>
+        </header>
+
+        {/* Mobile drawer */}
+        {isMobileMenuOpen && user && profile && (
+          <div className="fixed inset-0 z-40 sm:hidden">
+            <div
+              className="absolute inset-0 bg-black/60"
+              onClick={() => setIsMobileMenuOpen(false)}
+            />
+            <aside className="absolute top-0 right-0 flex h-full w-[85%] max-w-xs flex-col border-l border-white/10 bg-neutral-950/95 p-6 backdrop-blur">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-fuchsia-500 to-indigo-600 flex items-center justify-center text-sm font-semibold text-white">
+                    {profile.name?.[0]?.toUpperCase() || user.email?.[0].toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-white">{profile.name || 'Guest'}</p>
+                    <p className="text-xs text-neutral-400">{user.email}</p>
+                  </div>
                 </div>
                 <button
-                  onClick={() => setShowReferralModal(true)}
-                  className="inline-flex items-center gap-2 rounded-md bg-gradient-to-br from-fuchsia-500 to-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-lg shadow-fuchsia-600/20 ring-1 ring-white/10 transition hover:opacity-95"
+                  type="button"
+                  aria-label="Close menu"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="rounded-md border border-white/10 p-2 text-neutral-300 transition hover:text-white"
                 >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3l2.286 6.857H21l-5.357 3.929L17.929 21 12 16.929 6.071 21l1.286-7.214L2 9.857h6.714L12 3z" />
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
-                  Get credits
                 </button>
+              </div>
+
+              <div className="mt-6 space-y-4">
+                <div className={`inline-flex w-fit items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ${
+                  currentCredits <= 1
+                    ? 'bg-red-500/15 text-red-300'
+                    : 'bg-fuchsia-500/15 text-fuchsia-200'
+                }`}>
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <path d="M12 3l2.286 6.857H21l-5.357 3.929L17.929 21 12 16.929 6.071 21l1.286-7.214L2 9.857h6.714L12 3z" />
+                  </svg>
+                  {currentCredits} credits remaining
+                </div>
+
                 <button
-                  onClick={handleSignOut}
-                  className="inline-flex rounded-md px-3 py-2 text-sm font-medium text-neutral-300 hover:text-white cursor-pointer transition"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    setShowReferralModal(true);
+                  }}
+                  className="w-full rounded-lg bg-gradient-to-br from-fuchsia-500 to-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-fuchsia-600/20 ring-1 ring-white/10 transition hover:opacity-95"
+                >
+                  Invite friends, earn credits
+                </button>
+
+                <button
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    handleSignOut();
+                  }}
+                  className="w-full rounded-lg border border-white/15 px-4 py-3 text-sm font-medium text-neutral-200 transition hover:border-white/30 hover:text-white"
                 >
                   Sign out
                 </button>
+
+                <div className="border-t border-white/10 pt-4">
+                  <p className="text-xs text-neutral-400">
+                    Tip: Upload your inspiration and base photos below to keep exploring new looks.
+                  </p>
+                </div>
               </div>
-            )}
+            </aside>
           </div>
-        </header>
+        )}
 
         {/* Header */}
         <header className="text-center mb-8 sm:mb-12">

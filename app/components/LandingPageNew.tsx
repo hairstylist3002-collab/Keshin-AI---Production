@@ -257,15 +257,15 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
 
       {/* Navbar */}
       <header className="relative">
-        <div className="w-full px-4">
-          <div className="flex items-center justify-between py-5">
+        <div className="w-full px-4 sm:px-6">
+          <div className="flex items-center justify-between py-4 sm:py-5">
             <div className="flex items-center gap-2">
               <div className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-br from-fuchsia-500 to-indigo-600 text-white">
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z" />
                 </svg>
               </div>
-              <span className="text-lg font-medium tracking-tight">Keshin Shop</span>
+              <span className="text-base sm:text-lg font-medium tracking-tight">Keshin Shop</span>
             </div>
             <nav className="hidden md:flex items-center gap-8 text-sm text-neutral-300">
               <a href="#how" className="hover:text-white transition">How it works</a>
@@ -273,23 +273,24 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
               <a href="#pricing" className="hover:text-white transition">Pricing</a>
               <a href="#faq" className="hover:text-white transition">FAQ</a>
             </nav>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               {isAuthenticated && user ? (
                 <button
                   onClick={onGetStarted}
-                  className="inline-flex items-center gap-2 rounded-md bg-gradient-to-br from-fuchsia-500 to-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-fuchsia-600/20 ring-1 ring-white/10 hover:opacity-95"
+                  className="inline-flex items-center gap-1.5 sm:gap-2 rounded-md bg-gradient-to-br from-fuchsia-500 to-indigo-600 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white shadow-lg shadow-fuchsia-600/20 ring-1 ring-white/10 hover:opacity-95"
                   suppressHydrationWarning
                 >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="h-3.5 w-3.5 sm:h-4 sm:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
                   </svg>
-                  Go to Hairstylist
+                  <span className="hidden sm:inline">Go to Hairstylist</span>
+                  <span className="sm:hidden">Start</span>
                 </button>
               ) : (
                 <>
                   <div
                     onClick={() => router.push('/signup')}
-                    className="inline-flex rounded-md px-3 py-2 text-sm font-medium text-neutral-300 hover:text-white cursor-pointer transition"
+                    className="inline-flex rounded-md px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-neutral-300 hover:text-white cursor-pointer transition"
                   >
                     Sign in
                   </div>
@@ -306,7 +307,7 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
                       });
                     }}
                     disabled={!isAuthenticated}
-                    className={`inline-flex items-center gap-2 rounded-md bg-white/10 px-4 py-2 text-sm font-medium text-white shadow-sm ring-1 ring-white/15 transition-all duration-200 ${
+                    className={`inline-flex items-center gap-1.5 sm:gap-2 rounded-md bg-white/10 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white shadow-sm ring-1 ring-white/15 transition-all duration-200 ${
                       !isAuthenticated
                         ? 'opacity-50 cursor-not-allowed hover:bg-white/10'
                         : 'hover:bg-white/15'
@@ -330,10 +331,11 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
                       }
                     }}
                   >
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="h-3.5 w-3.5 sm:h-4 sm:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
                     </svg>
-                    Get started
+                    <span className="hidden sm:inline">Get started</span>
+                    <span className="sm:hidden">Start</span>
                   </button>
                 </>
               )}
@@ -387,12 +389,12 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
                 
                 
                 {/* Automatic Slideshow */}
-                <div className="relative max-w-4xl mx-auto px-4">
+                <div className="relative w-full overflow-hidden">
                   <div className={`transition-opacity duration-1000 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
-                    <div className="flex items-center justify-center gap-3 md:gap-6">
+                    <div className="flex items-center justify-center gap-2 sm:gap-3 md:gap-6 px-2">
                       {/* Original Image */}
                       <div className="flex flex-col items-center flex-shrink-0">
-                        <div className="aspect-[3/4] w-24 md:w-32 overflow-hidden rounded-lg ring-1 ring-white/10 relative mb-2">
+                        <div className="aspect-[3/4] w-20 sm:w-24 md:w-32 overflow-hidden rounded-lg ring-1 ring-white/10 relative mb-2">
                           <Image
                             src={currentExampleData.before}
                             alt="Original hairstyle"
@@ -400,19 +402,19 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
                             className="object-cover"
                           />
                         </div>
-                        <span className="text-xs font-medium text-amber-300 bg-amber-500/20 px-2 py-1 rounded-full whitespace-nowrap">
+                        <span className="text-[10px] sm:text-xs font-medium text-amber-300 bg-amber-500/20 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full whitespace-nowrap">
                           You
                         </span>
                       </div>
                       
                       {/* Arrow 1 */}
-                      <div className="text-xl md:text-2xl text-neutral-400 animate-pulse flex-shrink-0">
+                      <div className="text-base sm:text-xl md:text-2xl text-neutral-400 animate-pulse flex-shrink-0">
                         →
                       </div>
                       
                       {/* Inspiration Image */}
                       <div className="flex flex-col items-center flex-shrink-0">
-                        <div className="aspect-[3/4] w-24 md:w-32 overflow-hidden rounded-lg ring-1 ring-white/10 relative mb-2">
+                        <div className="aspect-[3/4] w-20 sm:w-24 md:w-32 overflow-hidden rounded-lg ring-1 ring-white/10 relative mb-2">
                           <Image
                             src={currentExampleData.inspiration}
                             alt="Inspiration hairstyle"
@@ -420,19 +422,19 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
                             className="object-cover"
                           />
                         </div>
-                        <span className="text-xs font-medium text-purple-300 bg-purple-500/20 px-2 py-1 rounded-full whitespace-nowrap">
+                        <span className="text-[10px] sm:text-xs font-medium text-purple-300 bg-purple-500/20 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full whitespace-nowrap">
                           Inspiration
                         </span>
                       </div>
                       
                       {/* Arrow 2 */}
-                      <div className="text-xl md:text-2xl text-neutral-400 animate-pulse flex-shrink-0">
+                      <div className="text-base sm:text-xl md:text-2xl text-neutral-400 animate-pulse flex-shrink-0">
                         →
                       </div>
                       
                       {/* Result Image */}
                       <div className="flex flex-col items-center flex-shrink-0">
-                        <div className="aspect-[3/4] w-24 md:w-32 overflow-hidden rounded-lg ring-1 ring-white/10 relative mb-2">
+                        <div className="aspect-[3/4] w-20 sm:w-24 md:w-32 overflow-hidden rounded-lg ring-1 ring-white/10 relative mb-2">
                           <Image
                             src={currentExampleData.after}
                             alt="AI Result hairstyle"
@@ -440,7 +442,7 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
                             className="object-cover"
                           />
                         </div>
-                        <span className="text-xs font-medium text-emerald-300 bg-emerald-500/20 px-2 py-1 rounded-full whitespace-nowrap">
+                        <span className="text-[10px] sm:text-xs font-medium text-emerald-300 bg-emerald-500/20 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full whitespace-nowrap">
                           AI Result
                         </span>
                       </div>
@@ -800,13 +802,13 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
 
       {/* Final CTA */}
       <section className="relative">
-        <div className="mx-auto max-w-6xl px-6 py-16">
-          <div className="overflow-hidden rounded-2xl border border-fuchsia-500/30 bg-gradient-to-br from-fuchsia-600/20 via-indigo-600/20 to-transparent p-8">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-16">
+          <div className="overflow-hidden rounded-2xl border border-fuchsia-500/30 bg-gradient-to-br from-fuchsia-600/20 via-indigo-600/20 to-transparent p-6 sm:p-8">
             <div className="grid items-center gap-8 md:grid-cols-2">
-              <div>
-                <h3 className="text-3xl font-semibold tracking-tight text-white">Ready to find the look you were meant to have?</h3>
-                <p className="mt-2 text-neutral-200">End the guesswork, protect your money, and walk in with confidence.</p>
-                <div className="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div className="text-center md:text-left">
+                <h3 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white">Ready to find the look you were meant to have?</h3>
+                <p className="mt-2 text-sm sm:text-base text-neutral-200">End the guesswork, protect your money, and walk in with confidence.</p>
+                <div className="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 justify-center md:justify-start">
                   <button 
                     onClick={() => router.push('/signup')}
                     className="inline-flex items-center justify-center gap-2 rounded-md bg-white text-neutral-900 px-5 py-3 text-sm font-medium hover:opacity-95" suppressHydrationWarning
@@ -826,13 +828,13 @@ export default function LandingPageNew({ onGetStarted }: LandingPageProps) {
               </div>
               <div className="relative">
                 {/* Example transformation showcase */}
-                <div className="rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur">
+                <div className="rounded-xl border border-white/10 bg-white/5 p-4 sm:p-6 backdrop-blur">
                   <div className="text-center mb-4">
-                    <h4 className="text-lg font-semibold text-white mb-1">{finalCTAExample.title}</h4>
-                    <p className="text-sm text-neutral-400">{finalCTAExample.description}</p>
+                    <h4 className="text-base sm:text-lg font-semibold text-white mb-1">{finalCTAExample.title}</h4>
+                    <p className="text-xs sm:text-sm text-neutral-400">{finalCTAExample.description}</p>
                   </div>
 
-                  <div className="flex items-center justify-center gap-4 md:gap-6">
+                  <div className="flex items-center justify-center gap-3 sm:gap-4 md:gap-6">
                     {/* Before Image */}
                     <div className="flex flex-col items-center flex-shrink-0">
                       <div className="aspect-[3/4] w-20 md:w-24 overflow-hidden rounded-lg ring-1 ring-white/10 relative mb-2">
